@@ -29,12 +29,28 @@ public class GetMessageResult {
     private final List<ByteBuffer> messageBufferList = new ArrayList<ByteBuffer>(100);
 
     private GetMessageStatus status;
+
+    /**
+     * 下次从哪个offset开始消费
+     */
     private long nextBeginOffset;
+
+    /**
+     * consumequeue的最小offset
+     */
     private long minOffset;
+
+    /**
+     * consumequeue的最大offset
+     */
     private long maxOffset;
 
     private int bufferTotalSize = 0;
 
+    /**
+     * 获取消息太落后的话
+     * 会建议从slave消费
+     */
     private boolean suggestPullingFromSlave = false;
 
     private int msgCount4Commercial = 0;
