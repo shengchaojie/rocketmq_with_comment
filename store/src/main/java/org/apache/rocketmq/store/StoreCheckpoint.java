@@ -62,6 +62,8 @@ public class StoreCheckpoint {
         }
     }
 
+    //只有下面这两个方法被调用的时候才会刷到硬盘
+
     public void shutdown() {
         this.flush();
 

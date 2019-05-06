@@ -253,13 +253,18 @@ public class BrokerController {
             }
         }
 
+        //初始化messageStore
+        //把文件系统中文件加载到内存中 commitlog等等
         result = result && this.messageStore.load();
 
         if (result) {
+            // NettyRemotingServer 用来处理client请求
+            // 请求 既有 发消息 也有 拉取消息
             this.remotingServer = new NettyRemotingServer(this.nettyServerConfig, this.clientHousekeepingService);
             NettyServerConfig fastConfig = (NettyServerConfig) this.nettyServerConfig.clone();
             fastConfig.setListenPort(nettyServerConfig.getListenPort() - 2);
             this.fastRemotingServer = new NettyRemotingServer(fastConfig, this.clientHousekeepingService);
+            //下面是各种线程池初始化
             this.sendMessageExecutor = new BrokerFixedThreadPoolExecutor(
                 this.brokerConfig.getSendMessageThreadPoolNums(),
                 this.brokerConfig.getSendMessageThreadPoolNums(),
@@ -316,8 +321,10 @@ public class BrokerController {
                 Executors.newFixedThreadPool(this.brokerConfig.getConsumerManageThreadPoolNums(), new ThreadFactoryImpl(
                     "ConsumerManageThread_"));
 
+            //向netty服务 注册请求处理器 每种请求对应一个处理器逻辑
             this.registerProcessor();
 
+            //下面是各种定时任务
             final long initialDelay = UtilAll.computNextMorningTimeMillis() - System.currentTimeMillis();
             final long period = 1000 * 60 * 60 * 24;
             this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
@@ -467,7 +474,9 @@ public class BrokerController {
                 }
             }
             initialTransaction();
+            //acl 应该是权限相关配置 也利用了spi
             initialAcl();
+            //通过spi注册rpchook 不是jvm退出的hook 是rpc请求前后的回调逻辑hook
             initialRpcHooks();
         }
         return result;
@@ -529,9 +538,17 @@ public class BrokerController {
         }
     }
 
+    /**
+     * 向netty服务 注册处理器
+     */
     public void registerProcessor() {
         /**
+         * 下面每种类型的处理器都对应自己的线程池
+         */
+
+        /**
          * SendMessageProcessor
+         * 处理发送消息的处理器 各种类型的发送消息都使用SendMessageProcessor处理
          */
         SendMessageProcessor sendProcessor = new SendMessageProcessor(this);
         sendProcessor.registerSendMessageHook(sendMessageHookList);
@@ -547,12 +564,14 @@ public class BrokerController {
         this.fastRemotingServer.registerProcessor(RequestCode.CONSUMER_SEND_MSG_BACK, sendProcessor, this.sendMessageExecutor);
         /**
          * PullMessageProcessor
+         * 处理拉取消息的处理器
          */
         this.remotingServer.registerProcessor(RequestCode.PULL_MESSAGE, this.pullMessageProcessor, this.pullMessageExecutor);
         this.pullMessageProcessor.registerConsumeMessageHook(consumeMessageHookList);
 
         /**
          * QueryMessageProcessor
+         * 查询消息
          */
         NettyRequestProcessor queryProcessor = new QueryMessageProcessor(this);
         this.remotingServer.registerProcessor(RequestCode.QUERY_MESSAGE, queryProcessor, this.queryMessageExecutor);
@@ -563,6 +582,7 @@ public class BrokerController {
 
         /**
          * ClientManageProcessor
+         * 系统管理相关 心跳 什么的
          */
         ClientManageProcessor clientProcessor = new ClientManageProcessor(this);
         this.remotingServer.registerProcessor(RequestCode.HEART_BEAT, clientProcessor, this.heartbeatExecutor);
@@ -575,6 +595,7 @@ public class BrokerController {
 
         /**
          * ConsumerManageProcessor
+         * 消费进度相关
          */
         ConsumerManageProcessor consumerManageProcessor = new ConsumerManageProcessor(this);
         this.remotingServer.registerProcessor(RequestCode.GET_CONSUMER_LIST_BY_GROUP, consumerManageProcessor, this.consumerManageExecutor);
@@ -587,12 +608,14 @@ public class BrokerController {
 
         /**
          * EndTransactionProcessor
+         * 事务相关 暂不深入
          */
         this.remotingServer.registerProcessor(RequestCode.END_TRANSACTION, new EndTransactionProcessor(this), this.endTransactionExecutor);
         this.fastRemotingServer.registerProcessor(RequestCode.END_TRANSACTION, new EndTransactionProcessor(this), this.endTransactionExecutor);
 
         /**
          * Default
+         * 默认
          */
         AdminBrokerProcessor adminProcessor = new AdminBrokerProcessor(this);
         this.remotingServer.registerDefaultProcessor(adminProcessor, this.adminBrokerExecutor);

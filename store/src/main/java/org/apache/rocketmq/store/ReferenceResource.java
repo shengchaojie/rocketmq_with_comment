@@ -29,6 +29,7 @@ public abstract class ReferenceResource {
             if (this.refCount.getAndIncrement() > 0) {
                 return true;
             } else {
+                //还原refCount大小
                 this.refCount.getAndDecrement();
             }
         }
@@ -46,6 +47,7 @@ public abstract class ReferenceResource {
             this.firstShutdownTimestamp = System.currentTimeMillis();
             this.release();
         } else if (this.getRefCount() > 0) {
+            //如果第一次shutdown release 失败 在这边再次判断下
             if ((System.currentTimeMillis() - this.firstShutdownTimestamp) >= intervalForcibly) {
                 this.refCount.set(-1000 - this.getRefCount());
                 this.release();

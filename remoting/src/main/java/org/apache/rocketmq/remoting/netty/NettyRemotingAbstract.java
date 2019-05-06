@@ -51,6 +51,9 @@ import org.apache.rocketmq.remoting.exception.RemotingTooMuchRequestException;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 import org.apache.rocketmq.remoting.protocol.RemotingSysResponseCode;
 
+/**
+ * 封装绝大部分netty服务的公用逻辑
+ */
 public abstract class NettyRemotingAbstract {
 
     /**
@@ -199,10 +202,14 @@ public abstract class NettyRemotingAbstract {
                 @Override
                 public void run() {
                     try {
+                        //rpchook
                         doBeforeRpcHooks(RemotingHelper.parseChannelRemoteAddr(ctx.channel()), cmd);
+                        //使用处理器处理请求
                         final RemotingCommand response = pair.getObject1().processRequest(ctx, cmd);
+                        //rpchook
                         doAfterRpcHooks(RemotingHelper.parseChannelRemoteAddr(ctx.channel()), cmd, response);
 
+                        //如果不是oneway 那么向client返回response
                         if (!cmd.isOnewayRPC()) {
                             if (response != null) {
                                 response.setOpaque(opaque);
@@ -222,6 +229,7 @@ public abstract class NettyRemotingAbstract {
                         log.error("process request exception", e);
                         log.error(cmd.toString());
 
+                        //出现异常 如果不是oneway 向client返回错误信息
                         if (!cmd.isOnewayRPC()) {
                             final RemotingCommand response = RemotingCommand.createResponseCommand(RemotingSysResponseCode.SYSTEM_ERROR,
                                 RemotingHelper.exceptionSimpleDesc(e));
@@ -232,6 +240,7 @@ public abstract class NettyRemotingAbstract {
                 }
             };
 
+            //SendMessageProcessor 中 如果broker繁忙 比如太多脏页没刷盘 那么返回busy错误码给client
             if (pair.getObject1().rejectRequest()) {
                 final RemotingCommand response = RemotingCommand.createResponseCommand(RemotingSysResponseCode.SYSTEM_BUSY,
                     "[REJECTREQUEST]system busy, start flow control for a while");
@@ -241,6 +250,7 @@ public abstract class NettyRemotingAbstract {
             }
 
             try {
+                //将run封装成RequestTask，放入它对应线程池执行
                 final RequestTask requestTask = new RequestTask(run, ctx.channel(), cmd);
                 pair.getObject2().submit(requestTask);
             } catch (RejectedExecutionException e) {
@@ -251,6 +261,7 @@ public abstract class NettyRemotingAbstract {
                         + " request code: " + cmd.getCode());
                 }
 
+                //发生异常 返回特定错误码给客户端
                 if (!cmd.isOnewayRPC()) {
                     final RemotingCommand response = RemotingCommand.createResponseCommand(RemotingSysResponseCode.SYSTEM_BUSY,
                         "[OVERLOAD]system busy, start flow control for a while");
@@ -259,6 +270,7 @@ public abstract class NettyRemotingAbstract {
                 }
             }
         } else {
+            //找不到对应处理器 说明不支持该请求 返回特定错误码
             String error = " request type " + cmd.getCode() + " not supported";
             final RemotingCommand response =
                 RemotingCommand.createResponseCommand(RemotingSysResponseCode.REQUEST_CODE_NOT_SUPPORTED, error);
@@ -270,7 +282,7 @@ public abstract class NettyRemotingAbstract {
 
     /**
      * Process response from remote peer to the previous issued requests.
-     *
+     * 处理response 应该是client 用到这个逻辑
      * @param ctx channel handler context.
      * @param cmd response command instance.
      */

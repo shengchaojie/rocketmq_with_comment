@@ -28,6 +28,10 @@ import org.apache.rocketmq.store.config.MessageStoreConfig;
 import org.apache.rocketmq.store.util.LibC;
 import sun.nio.ch.DirectBuffer;
 
+/**
+ * 一个直接内存的缓存
+ * 用于异步刷盘
+ */
 public class TransientStorePool {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
 
@@ -38,8 +42,8 @@ public class TransientStorePool {
 
     public TransientStorePool(final MessageStoreConfig storeConfig) {
         this.storeConfig = storeConfig;
-        this.poolSize = storeConfig.getTransientStorePoolSize();
-        this.fileSize = storeConfig.getMapedFileSizeCommitLog();
+        this.poolSize = storeConfig.getTransientStorePoolSize();//默认buffer为5个 表示够用吗
+        this.fileSize = storeConfig.getMapedFileSizeCommitLog();//buffer 默认大小1G 和mappedBuffer一样大
         this.availableBuffers = new ConcurrentLinkedDeque<>();
     }
 

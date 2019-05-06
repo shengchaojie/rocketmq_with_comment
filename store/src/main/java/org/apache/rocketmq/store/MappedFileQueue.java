@@ -74,6 +74,8 @@ public class MappedFileQueue {
         }
     }
 
+    //找到第一个修改日期大于timestamp的mappedfile
+    //如果不存在 返回最后一个
     public MappedFile getMappedFileByTime(final long timestamp) {
         Object[] mfs = this.copyMappedFiles(0);
 
@@ -101,6 +103,8 @@ public class MappedFileQueue {
         return mfs;
     }
 
+    //在offset之后的数据或mappedfile都是脏的
+    //清空或删除
     public void truncateDirtyFiles(long offset) {
         List<MappedFile> willRemoveFiles = new ArrayList<MappedFile>();
 
@@ -121,6 +125,7 @@ public class MappedFileQueue {
         this.deleteExpiredFile(willRemoveFiles);
     }
 
+    //从mappedFiles删除过期的files
     void deleteExpiredFile(List<MappedFile> files) {
 
         if (!files.isEmpty()) {
@@ -136,6 +141,7 @@ public class MappedFileQueue {
 
             try {
                 if (!this.mappedFiles.removeAll(files)) {
+                    //todo 这边直接remove 是让垃圾回收器回收？
                     log.error("deleteExpiredFile remove failed.");
                 }
             } catch (Exception e) {
@@ -149,9 +155,11 @@ public class MappedFileQueue {
         File[] files = dir.listFiles();
         if (files != null) {
             // ascending order
+            //顺序排序
             Arrays.sort(files);
             for (File file : files) {
 
+                //如果文件大小 和 配置的大小不同 停止初始化
                 if (file.length() != this.mappedFileSize) {
                     log.warn(file + "\t" + file.length()
                         + " length not matched message store config value, please check it manually");
@@ -159,8 +167,10 @@ public class MappedFileQueue {
                 }
 
                 try {
+                    //初始化MappedFile
                     MappedFile mappedFile = new MappedFile(file.getPath(), mappedFileSize);
 
+                    // 会在commitlog.recover方法设置真正的offset
                     mappedFile.setWrotePosition(this.mappedFileSize);
                     mappedFile.setFlushedPosition(this.mappedFileSize);
                     mappedFile.setCommittedPosition(this.mappedFileSize);
@@ -176,6 +186,7 @@ public class MappedFileQueue {
         return true;
     }
 
+    //返回刷盘落后多少进度 也就是多少字节
     public long howMuchFallBehind() {
         if (this.mappedFiles.isEmpty())
             return 0;
@@ -191,8 +202,13 @@ public class MappedFileQueue {
         return 0;
     }
 
+    //返回最后一个mappedfile
+    // 在needCreate =true的情况下
+    //如果不存在 创建startOffset所在那个mappedfile
+    //如果最后一个满了 创建下一个mappedfile
     public MappedFile getLastMappedFile(final long startOffset, boolean needCreate) {
         long createOffset = -1;
+        //拿到最后一个mappedfile
         MappedFile mappedFileLast = getLastMappedFile();
 
         if (mappedFileLast == null) {
@@ -209,11 +225,14 @@ public class MappedFileQueue {
                 + UtilAll.offset2FileName(createOffset + this.mappedFileSize);
             MappedFile mappedFile = null;
 
+            //根据allocateMappedFileService是否存在，分别对应两种创建逻辑
             if (this.allocateMappedFileService != null) {
+                //阻塞带超时的等待创建完成
                 mappedFile = this.allocateMappedFileService.putRequestAndReturnMappedFile(nextFilePath,
                     nextNextFilePath, this.mappedFileSize);
             } else {
                 try {
+                    //直接创建 不带缓冲区
                     mappedFile = new MappedFile(nextFilePath, this.mappedFileSize);
                 } catch (IOException e) {
                     log.error("create mappedFile exception", e);
@@ -233,10 +252,12 @@ public class MappedFileQueue {
         return mappedFileLast;
     }
 
+    //都是调用这个方法来获得最后mappedfile 默认不存在或者满了 都会进行创建
     public MappedFile getLastMappedFile(final long startOffset) {
         return getLastMappedFile(startOffset, true);
     }
 
+    //返回最后一个mappedfile 可能为null
     public MappedFile getLastMappedFile() {
         MappedFile mappedFileLast = null;
 
@@ -255,6 +276,7 @@ public class MappedFileQueue {
         return mappedFileLast;
     }
 
+    //重置文件进度 会丢失offset后面的数据
     public boolean resetOffset(long offset) {
         MappedFile mappedFileLast = getLastMappedFile();
 
@@ -264,6 +286,7 @@ public class MappedFileQueue {
             long diff = lastOffset - offset;
 
             final int maxDiff = this.mappedFileSize * 2;
+            //如果reset的长度超过2个mappedfile 返回失败
             if (diff > maxDiff)
                 return false;
         }
@@ -354,6 +377,7 @@ public class MappedFileQueue {
                         files.add(mappedFile);
                         deleteCount++;
 
+                        //一次最多删除DELETE_FILES_BATCH_MAX个
                         if (files.size() >= DELETE_FILES_BATCH_MAX) {
                             break;
                         }
@@ -374,6 +398,7 @@ public class MappedFileQueue {
             }
         }
 
+        //从mappedFiles里面删除
         deleteExpiredFile(files);
 
         return deleteCount;
@@ -393,9 +418,12 @@ public class MappedFileQueue {
                 MappedFile mappedFile = (MappedFile) mfs[i];
                 SelectMappedBufferResult result = mappedFile.selectMappedBuffer(this.mappedFileSize - unitSize);
                 if (result != null) {
+                    //拿到当前mappedfile的maxoffset
                     long maxOffsetInLogicQueue = result.getByteBuffer().getLong();
                     result.release();
+                    //判断是否小于offset
                     destroy = maxOffsetInLogicQueue < offset;
+                    //如果小鱼offset 需要destroy
                     if (destroy) {
                         log.info("physic min offset " + offset + ", logics in current mappedFile max offset "
                             + maxOffsetInLogicQueue + ", delete it");
@@ -417,6 +445,7 @@ public class MappedFileQueue {
             }
         }
 
+        //从mappedFiles里面删除
         deleteExpiredFile(files);
 
         return deleteCount;
