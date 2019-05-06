@@ -954,10 +954,13 @@ public class CommitLog {
         public void run() {
             CommitLog.log.info(this.getServiceName() + " service started");
             while (!this.isStopped()) {
+                //每次commit的间隔 默认200ms
                 int interval = CommitLog.this.defaultMessageStore.getMessageStoreConfig().getCommitIntervalCommitLog();
 
+                //每次commit的最小页数
                 int commitDataLeastPages = CommitLog.this.defaultMessageStore.getMessageStoreConfig().getCommitCommitLogLeastPages();
 
+                //间隔超过这个时间，commit的最小页数没有限制
                 int commitDataThoroughInterval =
                     CommitLog.this.defaultMessageStore.getMessageStoreConfig().getCommitCommitLogThoroughInterval();
 
@@ -968,11 +971,13 @@ public class CommitLog {
                 }
 
                 try {
+                    //进行commit
                     boolean result = CommitLog.this.mappedFileQueue.commit(commitDataLeastPages);
                     long end = System.currentTimeMillis();
                     if (!result) {
                         this.lastCommitTimestamp = end; // result = false means some data committed.
                         //now wake up flush thread.
+                        //todo 为什么在部分commit的情况下 去唤醒flushCommitLogService
                         flushCommitLogService.wakeup();
                     }
 
@@ -986,6 +991,7 @@ public class CommitLog {
             }
 
             boolean result = false;
+            //stop后 还会进行防御性进行commit
             for (int i = 0; i < RETRY_TIMES_OVER && !result; i++) {
                 result = CommitLog.this.mappedFileQueue.commit(0);
                 CommitLog.log.info(this.getServiceName() + " service shutdown, retry " + (i + 1) + " times " + (result ? "OK" : "Not OK"));
@@ -1107,6 +1113,7 @@ public class CommitLog {
 
     /**
      * GroupCommit Service
+     * 同步刷盘调用
      */
     class GroupCommitService extends FlushCommitLogService {
         private volatile List<GroupCommitRequest> requestsWrite = new ArrayList<GroupCommitRequest>();

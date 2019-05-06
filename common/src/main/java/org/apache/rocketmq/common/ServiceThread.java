@@ -29,6 +29,7 @@ public abstract class ServiceThread implements Runnable {
 
     private Thread thread;
     protected final CountDownLatch2 waitPoint = new CountDownLatch2(1);
+    //是否被通知 包括shutdown 和 wakeup
     protected volatile AtomicBoolean hasNotified = new AtomicBoolean(false);
     protected volatile boolean stopped = false;
     protected boolean isDaemon = false;
@@ -127,6 +128,7 @@ public abstract class ServiceThread implements Runnable {
     }
 
     protected void waitForRunning(long interval) {
+        //如果已经被通知关闭 那么直接return
         if (hasNotified.compareAndSet(true, false)) {
             this.onWaitEnd();
             return;
@@ -135,11 +137,13 @@ public abstract class ServiceThread implements Runnable {
         //entry to wait
         waitPoint.reset();
 
+        //进行超时等待
         try {
             waitPoint.await(interval, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             log.error("Interrupted", e);
         } finally {
+            //醒来后 会重置hasNotified=false
             hasNotified.set(false);
             this.onWaitEnd();
         }

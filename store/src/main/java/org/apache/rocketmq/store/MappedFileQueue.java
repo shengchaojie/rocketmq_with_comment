@@ -474,6 +474,8 @@ public class MappedFileQueue {
         if (mappedFile != null) {
             int offset = mappedFile.commit(commitLeastPages);
             long where = mappedFile.getFileFromOffset() + offset;
+            //result=true 代表需要commit的data都完成了
+            //result
             result = where == this.committedWhere;
             this.committedWhere = where;
         }
