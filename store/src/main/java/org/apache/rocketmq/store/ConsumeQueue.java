@@ -27,17 +27,22 @@ import org.apache.rocketmq.store.config.StorePathConfigHelper;
 public class ConsumeQueue {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
 
+    //consumequeue的存储单元为20个字节
     public static final int CQ_STORE_UNIT_SIZE = 20;
     private static final InternalLogger LOG_ERROR = InternalLoggerFactory.getLogger(LoggerName.STORE_ERROR_LOGGER_NAME);
 
     private final DefaultMessageStore defaultMessageStore;
 
     private final MappedFileQueue mappedFileQueue;
+    //所属topic
     private final String topic;
+    //所属queueid
     private final int queueId;
     private final ByteBuffer byteBufferIndex;
 
     private final String storePath;
+
+    //一个MappedFile默认可以存储30W个消息unit，也就是600W字节，5-6M
     private final int mappedFileSize;
     private long maxPhysicOffset = -1;
     private volatile long minLogicOffset = 0;
@@ -56,6 +61,7 @@ public class ConsumeQueue {
         this.topic = topic;
         this.queueId = queueId;
 
+        //存储路径地址为 /storepath/topic/queueid/0000....
         String queueDir = this.storePath
             + File.separator + topic
             + File.separator + queueId;
@@ -64,6 +70,7 @@ public class ConsumeQueue {
 
         this.byteBufferIndex = ByteBuffer.allocate(CQ_STORE_UNIT_SIZE);
 
+        //扩展队列 存储一些不必要的数据 单位也是20字节
         if (defaultMessageStore.getMessageStoreConfig().isEnableConsumeQueueExt()) {
             this.consumeQueueExt = new ConsumeQueueExt(
                 topic,
@@ -388,6 +395,7 @@ public class ConsumeQueue {
 
                 long extAddr = this.consumeQueueExt.put(cqExtUnit);
                 if (isExtAddr(extAddr)) {
+                    //将consumequeue的tag转换为指向consumequeueext的地址
                     tagsCode = extAddr;
                 } else {
                     log.warn("Save consume queue extend fail, So just save tagsCode! {}, topic:{}, queueId:{}, offset:{}", cqExtUnit,

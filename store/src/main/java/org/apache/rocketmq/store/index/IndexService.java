@@ -48,7 +48,9 @@ public class IndexService {
 
     public IndexService(final DefaultMessageStore store) {
         this.defaultMessageStore = store;
+        //默认500w个hashslot
         this.hashSlotNum = store.getMessageStoreConfig().getMaxHashSlotNum();
+        //默认500W*4个index 因为可能存在hash冲突
         this.indexNum = store.getMessageStoreConfig().getMaxIndexNum();
         this.storePath =
             StorePathConfigHelper.getStorePathIndex(store.getMessageStoreConfig().getStorePathRootDir());
@@ -311,6 +313,7 @@ public class IndexService {
             this.readWriteLock.readLock().unlock();
         }
 
+        //每个indexfile只能存储2000W消息 如果超过就新建一个新的indexfile
         if (indexFile == null) {
             try {
                 String fileName =

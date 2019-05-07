@@ -31,7 +31,9 @@ public class IndexHeader {
     private final ByteBuffer byteBuffer;
     private AtomicLong beginTimestamp = new AtomicLong(0);
     private AtomicLong endTimestamp = new AtomicLong(0);
+    //这个indexfile消息在commitlog的最小的offset
     private AtomicLong beginPhyOffset = new AtomicLong(0);
+    //这个indexfile消息在commitlog的最大的offset
     private AtomicLong endPhyOffset = new AtomicLong(0);
     private AtomicInteger hashSlotCount = new AtomicInteger(0);
 
