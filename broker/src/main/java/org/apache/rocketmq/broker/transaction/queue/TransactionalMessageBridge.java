@@ -187,9 +187,17 @@ public class TransactionalMessageBridge {
     }
 
     public PutMessageResult putHalfMessage(MessageExtBrokerInner messageInner) {
+        //parseHalfMessageInner会修改消息元信息
+        //然后存入commitlog
         return store.putMessage(parseHalfMessageInner(messageInner));
     }
 
+    /**
+     * 事务消息的prepare消息和延迟消息一样
+     * 也会先放到一个单独的队列 topic=RMQ_SYS_TRANS_HALF_TOPIC queueId=0
+     * @param msgInner
+     * @return
+     */
     private MessageExtBrokerInner parseHalfMessageInner(MessageExtBrokerInner msgInner) {
         MessageAccessor.putProperty(msgInner, MessageConst.PROPERTY_REAL_TOPIC, msgInner.getTopic());
         MessageAccessor.putProperty(msgInner, MessageConst.PROPERTY_REAL_QUEUE_ID,

@@ -482,6 +482,7 @@ public class BrokerController {
         return result;
     }
 
+    //初始化事务消息相关组件
     private void initialTransaction() {
         this.transactionalMessageService = ServiceProvider.loadClass(ServiceProvider.TRANSACTION_SERVICE_ID, TransactionalMessageService.class);
         if (null == this.transactionalMessageService) {
