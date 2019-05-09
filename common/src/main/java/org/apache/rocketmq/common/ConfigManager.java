@@ -33,6 +33,7 @@ public abstract class ConfigManager {
             String jsonString = MixAll.file2String(fileName);
 
             if (null == jsonString || jsonString.length() == 0) {
+                //如果加载配置文件失败，那么加载备份的上一个配置文件
                 return this.loadBak();
             } else {
                 this.decode(jsonString);
@@ -45,6 +46,7 @@ public abstract class ConfigManager {
         }
     }
 
+    //文件名的重载
     public abstract String configFilePath();
 
     private boolean loadBak() {
@@ -65,6 +67,7 @@ public abstract class ConfigManager {
         return true;
     }
 
+    //序列化重载
     public abstract void decode(final String jsonString);
 
     public synchronized void persist() {
@@ -79,5 +82,6 @@ public abstract class ConfigManager {
         }
     }
 
+    //反序列化重载
     public abstract String encode(final boolean prettyFormat);
 }

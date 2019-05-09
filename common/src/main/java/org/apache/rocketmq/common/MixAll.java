@@ -145,15 +145,18 @@ public class MixAll {
 
     public static void string2File(final String str, final String fileName) throws IOException {
 
+        //先将内容写到tmp文件
         String tmpFile = fileName + ".tmp";
         string2FileNotSafe(str, tmpFile);
 
+        //把原文件内容备份到bak文件
         String bakFile = fileName + ".bak";
         String prevContent = file2String(fileName);
         if (prevContent != null) {
             string2FileNotSafe(prevContent, bakFile);
         }
 
+        //用tmo文件替换原文件
         File file = new File(fileName);
         file.delete();
 
