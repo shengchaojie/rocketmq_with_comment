@@ -109,6 +109,7 @@ public class MQClientInstance {
         }
     });
     private final ClientRemotingProcessor clientRemotingProcessor;
+    //定时拉消息
     private final PullMessageService pullMessageService;
     private final RebalanceService rebalanceService;
     private final DefaultMQProducer defaultMQProducer;
@@ -651,6 +652,7 @@ public class MQClientInstance {
                                     Entry<String, MQConsumerInner> entry = it.next();
                                     MQConsumerInner impl = entry.getValue();
                                     if (impl != null) {
+                                        //实际上更新的是RebalanceImpl内的topicSubscribeInfoTable
                                         impl.updateTopicSubscribeInfo(topic, subscribeInfo);
                                     }
                                 }

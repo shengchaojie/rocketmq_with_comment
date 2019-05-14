@@ -83,8 +83,11 @@ public class RebalancePushImpl extends RebalanceImpl {
 
     @Override
     public boolean removeUnnecessaryMessageQueue(MessageQueue mq, ProcessQueue pq) {
+        //如果是集群持久化到远程 让另一个rebalance得到这个mq的consumer从正确位置消费
         this.defaultMQPushConsumerImpl.getOffsetStore().persist(mq);
+        //本地内存删除
         this.defaultMQPushConsumerImpl.getOffsetStore().removeOffset(mq);
+        //集群顺序消费 需要解锁processqueue
         if (this.defaultMQPushConsumerImpl.isConsumeOrderly()
             && MessageModel.CLUSTERING.equals(this.defaultMQPushConsumerImpl.messageModel())) {
             try {

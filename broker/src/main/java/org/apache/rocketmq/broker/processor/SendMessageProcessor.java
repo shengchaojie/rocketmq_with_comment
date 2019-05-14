@@ -69,21 +69,26 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
             case RequestCode.CONSUMER_SEND_MSG_BACK:
                 return this.consumerSendMsgBack(ctx, request);
             default:
+                //解析请求头
                 SendMessageRequestHeader requestHeader = parseRequestHeader(request);
                 if (requestHeader == null) {
                     return null;
                 }
 
                 mqtraceContext = buildMsgContext(ctx, requestHeader);
+                //hook
                 this.executeSendMessageHookBefore(ctx, request, mqtraceContext);
 
                 RemotingCommand response;
                 if (requestHeader.isBatch()) {
+                    //批量消息
                     response = this.sendBatchMessage(ctx, request, mqtraceContext, requestHeader);
                 } else {
+                    //单条消息
                     response = this.sendMessage(ctx, request, mqtraceContext, requestHeader);
                 }
 
+                //hook
                 this.executeSendMessageHookAfter(response, mqtraceContext);
                 return response;
         }
@@ -357,9 +362,10 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
                         + "] sending transaction message is forbidden");
                 return response;
             }
-            //发送事务的prepare消息
+            //处理事务prepare消息
             putMessageResult = this.brokerController.getTransactionalMessageService().prepareMessage(msgInner);
         } else {
+            //调用store保存消息
             putMessageResult = this.brokerController.getMessageStore().putMessage(msgInner);
         }
 
