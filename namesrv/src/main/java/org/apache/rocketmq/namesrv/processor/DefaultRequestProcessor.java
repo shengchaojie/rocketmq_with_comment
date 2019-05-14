@@ -310,6 +310,7 @@ public class DefaultRequestProcessor implements NettyRequestProcessor {
         responseHeader.setHaServerAddr(result.getHaServerAddr());
         responseHeader.setMasterAddr(result.getMasterAddr());
 
+        // TODO: 2019-05-14 这里面存了什么
         byte[] jsonValue = this.namesrvController.getKvConfigManager().getKVListByNamespace(NamesrvUtil.NAMESPACE_ORDER_TOPIC_CONFIG);
         response.setBody(jsonValue);
         response.setCode(ResponseCode.SUCCESS);

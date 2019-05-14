@@ -57,6 +57,7 @@ public class MQFaultStrategy {
 
     public MessageQueue selectOneMessageQueue(final TopicPublishInfo tpInfo, final String lastBrokerName) {
         if (this.sendLatencyFaultEnable) {
+            // TODO: 2019-05-14 一个优化点 和延迟有关
             try {
                 int index = tpInfo.getSendWhichQueue().getAndIncrement();
                 for (int i = 0; i < tpInfo.getMessageQueueList().size(); i++) {
@@ -89,6 +90,7 @@ public class MQFaultStrategy {
             return tpInfo.selectOneMessageQueue();
         }
 
+        //轮询获取
         return tpInfo.selectOneMessageQueue(lastBrokerName);
     }
 

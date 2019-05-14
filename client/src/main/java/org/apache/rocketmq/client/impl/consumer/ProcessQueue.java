@@ -200,6 +200,7 @@ public class ProcessQueue {
                     }
                     msgCount.addAndGet(removedCnt);
 
+                    //如果消息没有全部消费完毕，剩下消息中最小的那个
                     if (!msgTreeMap.isEmpty()) {
                         result = msgTreeMap.firstKey();
                     }
