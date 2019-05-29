@@ -80,6 +80,7 @@ public class SlaveSynchronize {
         String masterAddrBak = this.masterAddr;
         if (masterAddrBak != null && !masterAddrBak.equals(brokerController.getBrokerAddr())) {
             try {
+                //从master同步consumeroffset
                 ConsumerOffsetSerializeWrapper offsetWrapper =
                     this.brokerController.getBrokerOuterAPI().getAllConsumerOffset(masterAddrBak);
                 this.brokerController.getConsumerOffsetManager().getOffsetTable()

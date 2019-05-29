@@ -878,6 +878,7 @@ public class BrokerController {
         }
 
         if (!messageStoreConfig.isEnableDLegerCommitLog()) {
+            //master会启动事务回查线程
             startProcessorByHa(messageStoreConfig.getBrokerRole());
             handleSlaveSynchronize(messageStoreConfig.getBrokerRole());
         }
@@ -897,10 +898,12 @@ public class BrokerController {
             }
         }, 1000 * 10, Math.max(10000, Math.min(brokerConfig.getRegisterNameServerPeriod(), 60000)), TimeUnit.MILLISECONDS);
 
+        //状态收集
         if (this.brokerStatsManager != null) {
             this.brokerStatsManager.start();
         }
 
+        //应该是用来让阻塞的获取消息请求超时
         if (this.brokerFastFailure != null) {
             this.brokerFastFailure.start();
         }
@@ -1131,7 +1134,12 @@ public class BrokerController {
     }
 
 
-
+    /**
+     * 如果是slave
+     * 下面这个定时任务会开启
+     * 定时从master更新数据 这边不包括commitlog 是一些配置数据
+     * @param role
+     */
     private void handleSlaveSynchronize(BrokerRole role) {
         if (role == BrokerRole.SLAVE) {
             if (null != slaveSyncFuture) {
@@ -1158,6 +1166,10 @@ public class BrokerController {
         }
     }
 
+    /**
+     * 这个应该RocketMQ高可用模式的方法 master切换为slave
+     * @param brokerId
+     */
     public void changeToSlave(int brokerId) {
         log.info("Begin to change to slave brokerName={} brokerId={}", brokerConfig.getBrokerName(), brokerId);
 
@@ -1167,6 +1179,7 @@ public class BrokerController {
 
         //handle the scheduled service
         try {
+            //如果是slave 下面这个service会停止
             this.messageStore.handleScheduleMessageService(BrokerRole.SLAVE);
         } catch (Throwable t) {
             log.error("[MONITOR] handleScheduleMessageService failed when changing to slave", t);

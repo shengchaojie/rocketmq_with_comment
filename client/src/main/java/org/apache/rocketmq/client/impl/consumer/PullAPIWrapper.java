@@ -54,6 +54,9 @@ public class PullAPIWrapper {
     private final MQClientInstance mQClientFactory;
     private final String consumerGroup;
     private final boolean unitMode;
+    /**
+     * 下面这个结构决定MessageQueue 从 主 还是 从消费
+     */
     private ConcurrentMap<MessageQueue, AtomicLong/* brokerId */> pullFromWhichNodeTable =
         new ConcurrentHashMap<MessageQueue, AtomicLong>(32);
     private volatile boolean connectBrokerByUser = false;
@@ -118,6 +121,11 @@ public class PullAPIWrapper {
         return pullResult;
     }
 
+    /**
+     * 覆盖mq消费的地方
+     * @param mq
+     * @param brokerId
+     */
     public void updatePullFromWhichNode(final MessageQueue mq, final long brokerId) {
         AtomicLong suggest = this.pullFromWhichNodeTable.get(mq);
         if (null == suggest) {
