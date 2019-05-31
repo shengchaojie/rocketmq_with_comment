@@ -241,6 +241,7 @@ public class MappedFileQueue {
 
             if (mappedFile != null) {
                 if (this.mappedFiles.isEmpty()) {
+                    //是queue里面第一个mappedfile 设置这个标志
                     mappedFile.setFirstCreateInQueue(true);
                 }
                 this.mappedFiles.add(mappedFile);

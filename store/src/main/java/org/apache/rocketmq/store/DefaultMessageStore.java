@@ -201,7 +201,8 @@ public class DefaultMessageStore implements MessageStore {
 
                 this.indexService.load(lastExitOK);
 
-                //恢复 比如各个offset
+                //恢复offset
+                //commitlog 和 consumequeue
                 this.recover(lastExitOK);
 
                 log.info("load over, and the max phy offset = {}", this.getMaxPhyOffset());
@@ -1325,6 +1326,10 @@ public class DefaultMessageStore implements MessageStore {
         return file.exists();
     }
 
+    /**
+     * 加载consumequeue
+     * @return
+     */
     private boolean loadConsumeQueue() {
         File dirLogic = new File(StorePathConfigHelper.getStorePathConsumeQueue(this.messageStoreConfig.getStorePathRootDir()));
         File[] fileTopicList = dirLogic.listFiles();
@@ -1342,6 +1347,7 @@ public class DefaultMessageStore implements MessageStore {
                         } catch (NumberFormatException e) {
                             continue;
                         }
+                        //这边只是初始化 并没有进行数据恢复
                         ConsumeQueue logic = new ConsumeQueue(
                             topic,
                             queueId,
@@ -1363,6 +1369,7 @@ public class DefaultMessageStore implements MessageStore {
     }
 
     private void recover(final boolean lastExitOK) {
+        //恢复consumequeue
         long maxPhyOffsetOfConsumeQueue = this.recoverConsumeQueue();
 
         if (lastExitOK) {
@@ -1393,6 +1400,11 @@ public class DefaultMessageStore implements MessageStore {
         }
     }
 
+    /**
+     * 恢复consumequeue
+     * 返回consumequeue中最大的commitlog offset
+     * @return
+     */
     private long recoverConsumeQueue() {
         long maxPhysicOffset = -1;
         for (ConcurrentMap<Integer, ConsumeQueue> maps : this.consumeQueueTable.values()) {
@@ -1407,6 +1419,9 @@ public class DefaultMessageStore implements MessageStore {
         return maxPhysicOffset;
     }
 
+    /**
+     * 恢复topicqueue 里面存储topic-queue对应的最大偏移量
+     */
     public void recoverTopicQueueTable() {
         HashMap<String/* topic-queueid */, Long/* offset */> table = new HashMap<String, Long>(1024);
         long minPhyOffset = this.commitLog.getMinOffset();
