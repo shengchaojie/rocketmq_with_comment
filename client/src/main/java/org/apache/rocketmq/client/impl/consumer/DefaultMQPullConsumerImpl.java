@@ -237,6 +237,7 @@ public class DefaultMQPullConsumerImpl implements MQConsumerInner {
         long timeoutMillis = block ? this.defaultMQPullConsumer.getConsumerTimeoutMillisWhenSuspend() : timeout;
 
         boolean isTagType = ExpressionType.isTagType(subscriptionData.getExpressionType());
+        //同步拉取
         PullResult pullResult = this.pullAPIWrapper.pullKernelImpl(
             mq,
             subscriptionData.getSubString(),
@@ -251,7 +252,9 @@ public class DefaultMQPullConsumerImpl implements MQConsumerInner {
             CommunicationMode.SYNC,
             null
         );
+        //处理
         this.pullAPIWrapper.processPullResult(mq, pullResult, subscriptionData);
+        //获取拉取结果
         if (!this.consumeMessageHookList.isEmpty()) {
             ConsumeMessageContext consumeMessageContext = null;
             consumeMessageContext = new ConsumeMessageContext();
@@ -464,6 +467,7 @@ public class DefaultMQPullConsumerImpl implements MQConsumerInner {
         this.subscriptionAutomatically(mq.getTopic());
 
         try {
+            //pull模式不会顺带ack
             int sysFlag = PullSysFlag.buildSysFlag(false, block, true, false);
 
             long timeoutMillis = block ? this.defaultMQPullConsumer.getConsumerTimeoutMillisWhenSuspend() : timeout;

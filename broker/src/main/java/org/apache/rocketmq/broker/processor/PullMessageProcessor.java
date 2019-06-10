@@ -455,7 +455,7 @@ public class PullMessageProcessor implements NettyRequestProcessor {
                             this.brokerController.getMessageStore().now(), offset, subscriptionData, messageFilter);
                         //这边应该会阻塞等待下
                         this.brokerController.getPullRequestHoldService().suspendPullRequest(topic, queueId, pullRequest);
-                        // TODO: 2019-06-10 为什么返回null
+                        //这次请求在这里先不返回 suspendPullRequest那边会返回
                         response = null;
                         break;
                     }
@@ -570,6 +570,7 @@ public class PullMessageProcessor implements NettyRequestProcessor {
         }
     }
 
+    //用于长轮询拉取消息
     public void executeRequestWhenWakeup(final Channel channel,
         final RemotingCommand request) throws RemotingCommandException {
         Runnable run = new Runnable() {

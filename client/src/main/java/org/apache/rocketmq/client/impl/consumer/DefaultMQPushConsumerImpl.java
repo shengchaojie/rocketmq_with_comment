@@ -321,6 +321,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                     switch (pullResult.getPullStatus()) {
                         case FOUND:
                             long prevRequestOffset = pullRequest.getNextOffset();
+                            //设置下次拉取的开始offset
                             pullRequest.setNextOffset(pullResult.getNextBeginOffset());
                             long pullRT = System.currentTimeMillis() - beginTimestamp;
                             DefaultMQPushConsumerImpl.this.getConsumerStatsManager().incPullRT(pullRequest.getConsumerGroup(),
@@ -336,17 +337,19 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                                 DefaultMQPushConsumerImpl.this.getConsumerStatsManager().incPullTPS(pullRequest.getConsumerGroup(),
                                     pullRequest.getMessageQueue().getTopic(), pullResult.getMsgFoundList().size());
 
-                                //消息放入processQueue
+                                //重点 消息放入processQueue 可见pq用来缓存消息
                                 boolean dispatchToConsume = processQueue.putMessage(pullResult.getMsgFoundList());
                                 //发送消费消息的请求 激活consumeMessageService
+                                //触发消息消费
                                 DefaultMQPushConsumerImpl.this.consumeMessageService.submitConsumeRequest(
                                     pullResult.getMsgFoundList(),
                                     processQueue,
                                     pullRequest.getMessageQueue(),
                                     dispatchToConsume);
 
-                                //将pullRequest重新放入pullMessageService
+                                //将pullRequest重新放入pullMessageService 用于触发重新拉取消息
                                 if (DefaultMQPushConsumerImpl.this.defaultMQPushConsumer.getPullInterval() > 0) {
+                                    //如果pull设置了间隔 那么这边会延迟放入
                                     DefaultMQPushConsumerImpl.this.executePullRequestLater(pullRequest,
                                         DefaultMQPushConsumerImpl.this.defaultMQPushConsumer.getPullInterval());
                                 } else {
@@ -354,6 +357,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                                 }
                             }
 
+                            //offset有些错误 打个日志
                             if (pullResult.getNextBeginOffset() < prevRequestOffset
                                 || firstMsgOffset < prevRequestOffset) {
                                 log.warn(
@@ -420,8 +424,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
             }
         };
 
-        // TODO: 2019-05-14 这个标记干嘛用
-        // 应该是拉取消息的时候顺带ack消息
+        // 拉取消息的时候顺带ack消息进度
         boolean commitOffsetEnable = false;
         long commitOffsetValue = 0L;
         if (MessageModel.CLUSTERING == this.defaultMQPushConsumer.getMessageModel()) {
@@ -451,6 +454,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
         );
         try {
             //调用实际拉取消息的API
+            //push中也用pullAPIWrapper！！当然pull也用这个
             this.pullAPIWrapper.pullKernelImpl(
                 pullRequest.getMessageQueue(),
                 subExpression,

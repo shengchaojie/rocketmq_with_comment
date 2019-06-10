@@ -679,6 +679,7 @@ public class MQClientInstance {
                                     MQConsumerInner impl = entry.getValue();
                                     if (impl != null) {
                                         //更新消费者内订阅信息 实际上更新到rebalanceImpl内信息
+                                        //重点！！Rebalance核心更新点 更新topicSubscribeInfoTable！！！
                                         impl.updateTopicSubscribeInfo(topic, subscribeInfo);
                                     }
                                 }

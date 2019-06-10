@@ -211,6 +211,7 @@ public class PullAPIWrapper {
             }
 
             //remote invoke
+            //如果是异步 pullResult直接返回null
             PullResult pullResult = this.mQClientFactory.getMQClientAPIImpl().pullMessage(
                 brokerAddr,
                 requestHeader,
