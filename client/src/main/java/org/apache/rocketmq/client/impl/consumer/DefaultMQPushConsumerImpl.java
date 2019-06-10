@@ -198,7 +198,9 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
         this.offsetStore = offsetStore;
     }
 
+    //消息拉取逻辑实现在这里
     public void pullMessage(final PullRequest pullRequest) {
+        //注意 ProcessQueue 通过pullRequest传递
         final ProcessQueue processQueue = pullRequest.getProcessQueue();
         //如果是drop的pq 停止执行
         if (processQueue.isDropped()) {
@@ -226,7 +228,9 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
             return;
         }
 
+        //pq缓存的消息数
         long cachedMessageCount = processQueue.getMsgCount().get();
+        //pq缓存的消息大小
         long cachedMessageSizeInMiB = processQueue.getMsgSize().get() / (1024 * 1024);
 
         //流控
@@ -417,6 +421,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
         };
 
         // TODO: 2019-05-14 这个标记干嘛用
+        // 应该是拉取消息的时候顺带ack消息
         boolean commitOffsetEnable = false;
         long commitOffsetValue = 0L;
         if (MessageModel.CLUSTERING == this.defaultMQPushConsumer.getMessageModel()) {
@@ -440,7 +445,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
 
         int sysFlag = PullSysFlag.buildSysFlag(
             commitOffsetEnable, // commitOffset
-            true, // suspend
+            true, // suspend 这个应该是长轮询配置
             subExpression != null, // subscription
             classFilter // class filter
         );

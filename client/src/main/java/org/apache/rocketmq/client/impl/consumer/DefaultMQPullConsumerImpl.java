@@ -93,7 +93,9 @@ public class DefaultMQPullConsumerImpl implements MQConsumerInner {
     }
 
     public void createTopic(String key, String newTopic, int queueNum, int topicSysFlag) throws MQClientException {
+        //确认consumer在运行状态
         this.makeSureStateOK();
+        //调用api创建topic
         this.mQClientFactory.getMQAdminImpl().createTopic(key, newTopic, queueNum, topicSysFlag);
     }
 
@@ -111,6 +113,12 @@ public class DefaultMQPullConsumerImpl implements MQConsumerInner {
         return this.offsetStore.readOffset(mq, fromStore ? ReadOffsetType.READ_FROM_STORE : ReadOffsetType.MEMORY_FIRST_THEN_STORE);
     }
 
+    /**
+     * 获取topic在当前consumer有效的mq
+     * @param topic
+     * @return
+     * @throws MQClientException
+     */
     public Set<MessageQueue> fetchMessageQueuesInBalance(String topic) throws MQClientException {
         this.makeSureStateOK();
         if (null == topic) {
@@ -353,6 +361,7 @@ public class DefaultMQPullConsumerImpl implements MQConsumerInner {
             Set<MessageQueue> mqs = new HashSet<MessageQueue>();
             Set<MessageQueue> allocateMq = this.rebalanceImpl.getProcessQueueTable().keySet();
             mqs.addAll(allocateMq);
+            //从rebalanceImpl获取有效的mq 通过offsetStore更新
             this.offsetStore.persistAll(mqs);
         } catch (Exception e) {
             log.error("group: " + this.defaultMQPullConsumer.getConsumerGroup() + " persistConsumerOffset exception", e);
@@ -362,8 +371,10 @@ public class DefaultMQPullConsumerImpl implements MQConsumerInner {
     @Override
     public void updateTopicSubscribeInfo(String topic, Set<MessageQueue> info) {
         Map<String, SubscriptionData> subTable = this.rebalanceImpl.getSubscriptionInner();
+        //consumer只更新自己订阅的topic
         if (subTable != null) {
             if (subTable.containsKey(topic)) {
+                //更新rebalanceImpl内的TopicSubscribeInfoTable
                 this.rebalanceImpl.getTopicSubscribeInfoTable().put(topic, info);
             }
         }
@@ -590,7 +601,8 @@ public class DefaultMQPullConsumerImpl implements MQConsumerInner {
                 //设置topic订阅配置
                 this.copySubscription();
 
-                //todo 如果是集群订阅为什么instancename要改为pid
+                // 如果是集群订阅为什么instancename要改为pid？
+                // 按照道理来讲 不同主机pid也有可能会重复 估计会和host一起拼一下确定唯一性
                 if (this.defaultMQPullConsumer.getMessageModel() == MessageModel.CLUSTERING) {
                     this.defaultMQPullConsumer.changeInstanceNameToPID();
                 }
@@ -610,7 +622,7 @@ public class DefaultMQPullConsumerImpl implements MQConsumerInner {
                     this.defaultMQPullConsumer.getConsumerGroup(), isUnitMode());
                 this.pullAPIWrapper.registerFilterMessageHook(filterMessageHookList);
 
-                //todo offsetStore初始化 不知道干嘛用
+                // offsetStore用于存储消息消费进度 BROADCASTING存在本地 CLUSTERING存在远程
                 if (this.defaultMQPullConsumer.getOffsetStore() != null) {
                     this.offsetStore = this.defaultMQPullConsumer.getOffsetStore();
                 } else {

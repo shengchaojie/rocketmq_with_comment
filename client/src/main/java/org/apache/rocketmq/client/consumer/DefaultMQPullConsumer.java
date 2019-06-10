@@ -47,11 +47,13 @@ public class DefaultMQPullConsumer extends ClientConfig implements MQPullConsume
     /**
      * Long polling mode, the Consumer connection max suspend time, it is not
      * recommended to modify
+     * 长轮询模式下 客户端的挂起时间
      */
     private long brokerSuspendMaxTimeMillis = 1000 * 20;
     /**
      * Long polling mode, the Consumer connection timeout(must greater than
      * brokerSuspendMaxTimeMillis), it is not recommended to modify
+     * 长轮询模式下 客户端超时时间
      */
     private long consumerTimeoutMillisWhenSuspend = 1000 * 30;
     /**
@@ -60,6 +62,7 @@ public class DefaultMQPullConsumer extends ClientConfig implements MQPullConsume
     private long consumerPullTimeoutMillis = 1000 * 10;
     /**
      * Consumption pattern,default is clustering
+     * 默认为集群消费
      */
     private MessageModel messageModel = MessageModel.CLUSTERING;
     /**
@@ -76,6 +79,7 @@ public class DefaultMQPullConsumer extends ClientConfig implements MQPullConsume
     private Set<String> registerTopics = new HashSet<String>();
     /**
      * Queue allocation algorithm
+     * 就是rebalance的逻辑 采用策略模式
      */
     private AllocateMessageQueueStrategy allocateMessageQueueStrategy = new AllocateMessageQueueAveragely();
     /**

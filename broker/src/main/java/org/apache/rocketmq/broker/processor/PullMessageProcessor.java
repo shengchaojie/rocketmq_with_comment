@@ -123,7 +123,9 @@ public class PullMessageProcessor implements NettyRequestProcessor {
             return response;
         }
 
+        //是否允许长轮询
         final boolean hasSuspendFlag = PullSysFlag.hasSuspendFlag(requestHeader.getSysFlag());
+        //是否更新group的offset的标志
         final boolean hasCommitOffsetFlag = PullSysFlag.hasCommitOffsetFlag(requestHeader.getSysFlag());
         //可以理解为是否配置了tag
         final boolean hasSubscriptionFlag = PullSysFlag.hasSubscriptionFlag(requestHeader.getSysFlag());
@@ -439,8 +441,10 @@ public class PullMessageProcessor implements NettyRequestProcessor {
 
                     if (brokerAllowSuspend && hasSuspendFlag) {
                         //如果pull不到消息 应该会等待pollingTimeMills时间
+                        // 专业术语 长轮询
                         long pollingTimeMills = suspendTimeoutMillisLong;
                         if (!this.brokerController.getBrokerConfig().isLongPollingEnable()) {
+                            //如果配置不支持长轮询 改为一个比较小的时间
                             pollingTimeMills = this.brokerController.getBrokerConfig().getShortPollingTimeMills();
                         }
 
@@ -451,6 +455,7 @@ public class PullMessageProcessor implements NettyRequestProcessor {
                             this.brokerController.getMessageStore().now(), offset, subscriptionData, messageFilter);
                         //这边应该会阻塞等待下
                         this.brokerController.getPullRequestHoldService().suspendPullRequest(topic, queueId, pullRequest);
+                        // TODO: 2019-06-10 为什么返回null
                         response = null;
                         break;
                     }
@@ -497,7 +502,7 @@ public class PullMessageProcessor implements NettyRequestProcessor {
         storeOffsetEnable = storeOffsetEnable
             && this.brokerController.getMessageStoreConfig().getBrokerRole() != BrokerRole.SLAVE;
         if (storeOffsetEnable) {
-            //这边应该是保存改comsumergroup在该topic下面的消费进度
+            //这边应该是保存改group在该topic下面的消费进度
             this.brokerController.getConsumerOffsetManager().commitOffset(RemotingHelper.parseChannelRemoteAddr(channel),
                 requestHeader.getConsumerGroup(), requestHeader.getTopic(), requestHeader.getQueueId(), requestHeader.getCommitOffset());
         }

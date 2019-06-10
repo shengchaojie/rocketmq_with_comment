@@ -124,8 +124,11 @@ public class RemoteBrokerOffsetStore implements OffsetStore {
                 MessageQueue mq = entry.getKey();
                 AtomicLong offset = entry.getValue();
                 if (offset != null) {
+                    //只更新mqs中存在mq
                     if (mqs.contains(mq)) {
                         try {
+                            //offset取自offsetTable
+                            //消费消息的时候 应该回来更新offsetTable
                             this.updateConsumeOffsetToBroker(mq, offset.get());
                             log.info("[persistAll] Group: {} ClientId: {} updateConsumeOffsetToBroker {} {}",
                                 this.groupName,
@@ -142,6 +145,7 @@ public class RemoteBrokerOffsetStore implements OffsetStore {
             }
         }
 
+        //移除掉没有使用到的mq
         if (!unusedMQ.isEmpty()) {
             for (MessageQueue mq : unusedMQ) {
                 this.offsetTable.remove(mq);
