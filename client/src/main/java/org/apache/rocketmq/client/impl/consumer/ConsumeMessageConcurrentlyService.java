@@ -70,8 +70,8 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
         this.consumeRequestQueue = new LinkedBlockingQueue<Runnable>();
 
         this.consumeExecutor = new ThreadPoolExecutor(
-            this.defaultMQPushConsumer.getConsumeThreadMin(),
-            this.defaultMQPushConsumer.getConsumeThreadMax(),
+            this.defaultMQPushConsumer.getConsumeThreadMin(),//20
+            this.defaultMQPushConsumer.getConsumeThreadMax(),//64
             1000 * 60,
             TimeUnit.MILLISECONDS,
             this.consumeRequestQueue,
@@ -218,7 +218,8 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
                 this.submitConsumeRequestLater(consumeRequest);
             }
         } else {
-            //大于consumeBatchSize 分次提交
+            //大于consumeBatchSize 会拆分成多个ConsumeRequest
+            //然后并行消费
             for (int total = 0; total < msgs.size(); ) {
                 List<MessageExt> msgThis = new ArrayList<MessageExt>(consumeBatchSize);
                 for (int i = 0; i < consumeBatchSize; i++, total++) {
