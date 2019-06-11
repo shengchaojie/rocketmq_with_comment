@@ -540,6 +540,7 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
             try {
                 doBeforeRpcHooks(addr, request);
                 long costTime = System.currentTimeMillis() - beginStartTime;
+                //如果超时 抛出异常
                 if (timeoutMillis < costTime) {
                     throw new RemotingTooMuchRequestException("invokeAsync call timeout");
                 }

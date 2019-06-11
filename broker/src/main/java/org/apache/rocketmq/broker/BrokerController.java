@@ -176,8 +176,11 @@ public class BrokerController {
         this.messageStoreConfig = messageStoreConfig;
         this.consumerOffsetManager = new ConsumerOffsetManager(this);
         this.topicConfigManager = new TopicConfigManager(this);
+        //处理客户端消息拉取
         this.pullMessageProcessor = new PullMessageProcessor(this);
+        //用于挂起暂时拉不到消息的请求
         this.pullRequestHoldService = new PullRequestHoldService(this);
+        //用于通知pullRequestHoldService 消息到达
         this.messageArrivingListener = new NotifyMessageArrivingListener(this.pullRequestHoldService);
         this.consumerIdsChangeListener = new DefaultConsumerIdsChangeListener(this);
         this.consumerManager = new ConsumerManager(this.consumerIdsChangeListener);

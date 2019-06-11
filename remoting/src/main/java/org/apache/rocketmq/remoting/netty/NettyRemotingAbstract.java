@@ -295,6 +295,7 @@ public abstract class NettyRemotingAbstract {
             responseTable.remove(opaque);
 
             if (responseFuture.getInvokeCallback() != null) {
+                //如果存在回调执行回调
                 executeInvokeCallback(responseFuture);
             } else {
                 responseFuture.putResponse(cmd);
@@ -467,6 +468,8 @@ public abstract class NettyRemotingAbstract {
 
     /**
      * 异步发送 需要传递invokeCallback
+     * 注意 这边只是发送请求 然后把回调保存到responseTable
+     * 对应还有接受请求那边去触发回调
      * @param channel
      * @param request
      * @param timeoutMillis

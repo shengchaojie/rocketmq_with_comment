@@ -570,12 +570,15 @@ public class MQClientAPIImpl {
 
         switch (communicationMode) {
             case ONEWAY:
+                //这个应该废弃了
                 assert false;
                 return null;
             case ASYNC:
+                //异步直接返回null 然后执行pullCallback
                 this.pullMessageAsync(addr, request, timeoutMillis, pullCallback);
                 return null;
             case SYNC:
+                //同步阻塞调用
                 return this.pullMessageSync(addr, request, timeoutMillis);
             default:
                 assert false;
@@ -591,14 +594,14 @@ public class MQClientAPIImpl {
         final long timeoutMillis,
         final PullCallback pullCallback
     ) throws RemotingException, InterruptedException {
-        //异步调用 会回调pullCallback
+        //异步调用 通过回调执行pullCallback逻辑
         this.remotingClient.invokeAsync(addr, request, timeoutMillis, new InvokeCallback() {
             @Override
             public void operationComplete(ResponseFuture responseFuture) {
                 RemotingCommand response = responseFuture.getResponseCommand();
                 if (response != null) {
                     try {
-                        //处理返回
+                        //回调处理返回
                         PullResult pullResult = MQClientAPIImpl.this.processPullResponse(response);
                         assert pullResult != null;
                         //回调

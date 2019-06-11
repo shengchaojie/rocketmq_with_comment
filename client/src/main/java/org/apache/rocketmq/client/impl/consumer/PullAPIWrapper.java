@@ -151,6 +151,7 @@ public class PullAPIWrapper {
         }
     }
 
+    //到某个broker的mq拉取消息
     public PullResult pullKernelImpl(
         final MessageQueue mq,
         final String subExpression,
@@ -169,6 +170,7 @@ public class PullAPIWrapper {
         FindBrokerResult findBrokerResult =
             this.mQClientFactory.findBrokerAddressInSubscribe(mq.getBrokerName(),
                 this.recalculatePullFromWhichNode(mq), false);
+        //如果查找不到broker 更新一下 再次获取
         if (null == findBrokerResult) {
             this.mQClientFactory.updateTopicRouteInfoFromNameServer(mq.getTopic());
             findBrokerResult =
@@ -176,6 +178,7 @@ public class PullAPIWrapper {
                     this.recalculatePullFromWhichNode(mq), false);
         }
 
+        //找到broker的情况下
         if (findBrokerResult != null) {
             {
                 // check version
@@ -211,6 +214,7 @@ public class PullAPIWrapper {
             }
 
             //remote invoke
+            // 这边根据communicationMode不同，有不同的拉取模式
             //如果是异步 pullResult直接返回null
             PullResult pullResult = this.mQClientFactory.getMQClientAPIImpl().pullMessage(
                 brokerAddr,

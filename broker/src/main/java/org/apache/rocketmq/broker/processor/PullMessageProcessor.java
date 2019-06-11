@@ -81,6 +81,7 @@ public class PullMessageProcessor implements NettyRequestProcessor {
     @Override
     public RemotingCommand processRequest(final ChannelHandlerContext ctx,
         RemotingCommand request) throws RemotingCommandException {
+        //第一次请求broker 这边默认允许长轮询 但是也要看客户端的配置
         return this.processRequest(ctx.channel(), request, true);
     }
 
@@ -438,19 +439,20 @@ public class PullMessageProcessor implements NettyRequestProcessor {
                     }
                     break;
                 case ResponseCode.PULL_NOT_FOUND:
-
+                    //注意这个brokerAllowSuspend 长轮序后的拉取这个默认为false
                     if (brokerAllowSuspend && hasSuspendFlag) {
                         //如果pull不到消息 应该会等待pollingTimeMills时间
                         // 专业术语 长轮询
                         long pollingTimeMills = suspendTimeoutMillisLong;
                         if (!this.brokerController.getBrokerConfig().isLongPollingEnable()) {
-                            //如果配置不支持长轮询 改为一个比较小的时间
+                            //如果配置不支持长轮询 改为一个比较小的时间 1秒
                             pollingTimeMills = this.brokerController.getBrokerConfig().getShortPollingTimeMills();
                         }
 
                         String topic = requestHeader.getTopic();
                         long offset = requestHeader.getQueueOffset();
                         int queueId = requestHeader.getQueueId();
+                        //注意这边3，4参数 用于计算长轮询间隔
                         PullRequest pullRequest = new PullRequest(request, channel, pollingTimeMills,
                             this.brokerController.getMessageStore().now(), offset, subscriptionData, messageFilter);
                         //这边应该会阻塞等待下
@@ -577,8 +579,12 @@ public class PullMessageProcessor implements NettyRequestProcessor {
             @Override
             public void run() {
                 try {
+                    //再次从messagestore拉取消息
+                    //注意第三个参数为false 在消息拉取不到的情况下不在进行长轮询
                     final RemotingCommand response = PullMessageProcessor.this.processRequest(channel, request, false);
 
+                    //拉取结果 返回客户端
+                    //可能这边还是没拉取到
                     if (response != null) {
                         response.setOpaque(request.getOpaque());
                         response.markResponseType();

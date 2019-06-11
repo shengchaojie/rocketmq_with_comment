@@ -168,7 +168,9 @@ public class DefaultMQPullConsumerImpl implements MQConsumerInner {
 
     public PullResult pull(MessageQueue mq, String subExpression, long offset, int maxNums, long timeout)
         throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+        //构建订阅信息
         SubscriptionData subscriptionData = getSubscriptionData(mq, subExpression);
+        //同步拉取
         return this.pullSyncImpl(mq, subscriptionData, offset, maxNums, false, timeout);
     }
 
@@ -179,7 +181,9 @@ public class DefaultMQPullConsumerImpl implements MQConsumerInner {
 
     public PullResult pull(MessageQueue mq, MessageSelector messageSelector, long offset, int maxNums, long timeout)
         throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
+        //构建订阅信息
         SubscriptionData subscriptionData = getSubscriptionData(mq, messageSelector);
+        //同步拉取
         return this.pullSyncImpl(mq, subscriptionData, offset, maxNums, false, timeout);
     }
 
@@ -213,6 +217,7 @@ public class DefaultMQPullConsumerImpl implements MQConsumerInner {
         }
     }
 
+    //同步拉取消息
     private PullResult pullSyncImpl(MessageQueue mq, SubscriptionData subscriptionData, long offset, int maxNums, boolean block,
         long timeout)
         throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
@@ -232,6 +237,8 @@ public class DefaultMQPullConsumerImpl implements MQConsumerInner {
 
         this.subscriptionAutomatically(mq.getTopic());
 
+        //block标志 会传到broker
+        //如果
         int sysFlag = PullSysFlag.buildSysFlag(false, block, true, false);
 
         long timeoutMillis = block ? this.defaultMQPullConsumer.getConsumerTimeoutMillisWhenSuspend() : timeout;
@@ -247,9 +254,9 @@ public class DefaultMQPullConsumerImpl implements MQConsumerInner {
             maxNums,
             sysFlag,
             0,
-            this.defaultMQPullConsumer.getBrokerSuspendMaxTimeMillis(),
+            this.defaultMQPullConsumer.getBrokerSuspendMaxTimeMillis(),//长轮询时间
             timeoutMillis,
-            CommunicationMode.SYNC,
+            CommunicationMode.SYNC,//这个同步只与本地netty客户端请求方式有关 和远程实现无关
             null
         );
         //处理
@@ -468,6 +475,7 @@ public class DefaultMQPullConsumerImpl implements MQConsumerInner {
 
         try {
             //pull模式不会顺带ack
+            //block对应suspend 第三个参数是是否需要消息过滤
             int sysFlag = PullSysFlag.buildSysFlag(false, block, true, false);
 
             long timeoutMillis = block ? this.defaultMQPullConsumer.getConsumerTimeoutMillisWhenSuspend() : timeout;

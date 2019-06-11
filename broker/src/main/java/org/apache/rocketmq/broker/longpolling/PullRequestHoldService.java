@@ -73,6 +73,7 @@ public class PullRequestHoldService extends ServiceThread {
             try {
                 //阻塞时间根据是不是长轮询不同
                 if (this.brokerController.getBrokerConfig().isLongPollingEnable()) {
+                    //这边固定休息5秒。。应该有其他地方会激活吧
                     this.waitForRunning(5 * 1000);
                 } else {
                     this.waitForRunning(this.brokerController.getBrokerConfig().getShortPollingTimeMills());
@@ -98,6 +99,7 @@ public class PullRequestHoldService extends ServiceThread {
         return PullRequestHoldService.class.getSimpleName();
     }
 
+    //这边是定时触发
     private void checkHoldRequest() {
         //对pullRequestTable中每个pullRequest进行notify
         for (String key : this.pullRequestTable.keySet()) {
@@ -119,6 +121,7 @@ public class PullRequestHoldService extends ServiceThread {
         notifyMessageArriving(topic, queueId, maxOffset, null, 0, null, null);
     }
 
+    //这边可以消息reput后会立即触发
     public void notifyMessageArriving(final String topic, final int queueId, final long maxOffset, final Long tagsCode,
         long msgStoreTime, byte[] filterBitMap, Map<String, String> properties) {
         String key = this.buildKey(topic, queueId);
