@@ -221,6 +221,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
             //大于consumeBatchSize 会拆分成多个ConsumeRequest
             //然后并行消费
             for (int total = 0; total < msgs.size(); ) {
+                //按照consumeBatchSize维度拆分
                 List<MessageExt> msgThis = new ArrayList<MessageExt>(consumeBatchSize);
                 for (int i = 0; i < consumeBatchSize; i++, total++) {
                     if (total < msgs.size()) {
@@ -232,6 +233,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
 
                 ConsumeRequest consumeRequest = new ConsumeRequest(msgThis, processQueue, messageQueue);
                 try {
+                    //提交到consumeExecutor线程池
                     this.consumeExecutor.submit(consumeRequest);
                 } catch (RejectedExecutionException e) {
                     //放入失败 过一会儿在放入
