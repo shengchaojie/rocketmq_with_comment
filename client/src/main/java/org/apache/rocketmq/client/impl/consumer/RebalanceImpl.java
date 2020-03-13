@@ -219,7 +219,11 @@ public abstract class RebalanceImpl {
         }
     }
 
+
     public void doRebalance(final boolean isOrder) {
+        /**
+         * 拿到该consuemr的订阅关系
+         */
         Map<String, SubscriptionData> subTable = this.getSubscriptionInner();
         if (subTable != null) {
             for (final Map.Entry<String, SubscriptionData> entry : subTable.entrySet()) {
@@ -243,8 +247,14 @@ public abstract class RebalanceImpl {
         return subscriptionInner;
     }
 
+    /**
+     * 根据topic rebalance
+     * @param topic
+     * @param isOrder
+     */
     private void rebalanceByTopic(final String topic, final boolean isOrder) {
         switch (messageModel) {
+            //广播消费模型
             case BROADCASTING: {
                 Set<MessageQueue> mqSet = this.topicSubscribeInfoTable.get(topic);
                 if (mqSet != null) {
@@ -264,6 +274,7 @@ public abstract class RebalanceImpl {
                 }
                 break;
             }
+            //集群消费
             case CLUSTERING: {
                 //获取当前topic下一共有哪些queue
                 Set<MessageQueue> mqSet = this.topicSubscribeInfoTable.get(topic);
@@ -347,7 +358,7 @@ public abstract class RebalanceImpl {
     /**
      * 根据rebalance结果 处理已经存在的pq
      * @param topic
-     * @param mqSet 重新分配后的MessageQueue
+     * @param mqSet 重新分配后的MessageQueue 针对广播消费 是所有mq 针对集群 根据策略分配
      * @param isOrder
      * @return
      */
@@ -366,6 +377,7 @@ public abstract class RebalanceImpl {
                 if (!mqSet.contains(mq)) {
                     //如果mq不属于当前消费者 设置对应pq为dropped
                     pq.setDropped(true);
+                    //从offset 移除该mq 因为已经不属于当前消费者
                     if (this.removeUnnecessaryMessageQueue(mq, pq)) {
                         it.remove();
                         changed = true;
@@ -379,6 +391,7 @@ public abstract class RebalanceImpl {
                             break;
                         case CONSUME_PASSIVELY:
                             //如果是push模式 也设置为drop
+                            // TODO: 2020-03-13  push 和 pull 在这里处理为何不同
                             pq.setDropped(true);
                             if (this.removeUnnecessaryMessageQueue(mq, pq)) {
                                 it.remove();

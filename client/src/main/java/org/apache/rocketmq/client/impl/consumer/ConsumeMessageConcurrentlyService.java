@@ -48,6 +48,9 @@ import org.apache.rocketmq.common.protocol.body.CMResult;
 import org.apache.rocketmq.common.protocol.body.ConsumeMessageDirectlyResult;
 import org.apache.rocketmq.remoting.common.RemotingHelper;
 
+/**
+ * 并发消费消息
+ */
 public class ConsumeMessageConcurrentlyService implements ConsumeMessageService {
     private static final InternalLogger log = ClientLogger.getLog();
     private final DefaultMQPushConsumerImpl defaultMQPushConsumerImpl;
@@ -69,6 +72,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
         this.consumerGroup = this.defaultMQPushConsumer.getConsumerGroup();
         this.consumeRequestQueue = new LinkedBlockingQueue<Runnable>();
 
+        //用于执行消息消费的线程池
         this.consumeExecutor = new ThreadPoolExecutor(
             this.defaultMQPushConsumer.getConsumeThreadMin(),//20
             this.defaultMQPushConsumer.getConsumeThreadMax(),//64
@@ -77,6 +81,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
             this.consumeRequestQueue,
             new ThreadFactoryImpl("ConsumeMessageThread_"));
 
+        //用于消息重试的线程池
         this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryImpl("ConsumeMessageScheduledThread_"));
         this.cleanExpireMsgExecutors = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryImpl("CleanExpireMsgScheduledThread_"));
     }
@@ -87,6 +92,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
             @Override
             public void run() {
                 //这个定时任务会清理pq中消费失败的消息
+                //不是真正的清除，而是发送到延迟队列
                 cleanExpireMsg();
             }
 
@@ -222,6 +228,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
             //然后并行消费
             for (int total = 0; total < msgs.size(); ) {
                 //按照consumeBatchSize维度拆分
+                //!!consumeBatchSize大小为1 所以会拆分为多个只有1个消息的ConsumeRequest
                 List<MessageExt> msgThis = new ArrayList<MessageExt>(consumeBatchSize);
                 for (int i = 0; i < consumeBatchSize; i++, total++) {
                     if (total < msgs.size()) {
@@ -287,6 +294,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
                 }
                 int ok = ackIndex + 1;
                 //不可能有失败。。。
+                //额 都全部success了 ，当然不可能失败
                 int failed = consumeRequest.getMsgs().size() - ok;
                 this.getConsumerStatsManager().incConsumeOKTPS(consumerGroup, consumeRequest.getMessageQueue().getTopic(), ok);
                 this.getConsumerStatsManager().incConsumeFailedTPS(consumerGroup, consumeRequest.getMessageQueue().getTopic(), failed);
@@ -301,8 +309,10 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
                 break;
         }
 
+        //这边很重要，会决定更新offset的值是多少
         switch (this.defaultMQPushConsumer.getMessageModel()) {
             case BROADCASTING:
+                //广播的消息 失败了 直接丢了
                 for (int i = ackIndex + 1; i < consumeRequest.getMsgs().size(); i++) {
                     MessageExt msg = consumeRequest.getMsgs().get(i);
                     log.warn("BROADCASTING, the message consume failed, drop it, {}", msg.toString());
@@ -311,9 +321,10 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
             case CLUSTERING:
                 //ackIndex表示确认消息的位置,现在的代码看下来，要么全成功，要么全失败
                 List<MessageExt> msgBackFailed = new ArrayList<MessageExt>(consumeRequest.getMsgs().size());
+                //因为msgsize=1,所以只有失败的时候才会进入下面的循环
                 for (int i = ackIndex + 1; i < consumeRequest.getMsgs().size(); i++) {
                     MessageExt msg = consumeRequest.getMsgs().get(i);
-                    //消费失败的消息  重新插入到commitlog  发送到retry topic 实际上还是用延迟队列实现
+                    //消费失败的消息  重新插入到commitlog  发送到group对应重试topic
                     boolean result = this.sendMessageBack(msg, context);
                     //如果发送请求失败 那么本地再消费一次试试
                     if (!result) {
@@ -322,6 +333,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
                     }
                 }
 
+                //发送到重试队列失败的消息，重新消费
                 if (!msgBackFailed.isEmpty()) {
                     consumeRequest.getMsgs().removeAll(msgBackFailed);
 
@@ -333,9 +345,13 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
                 break;
         }
 
-        //更新offsetstore
+        //removeMessage会返回offset
+        //不管消费成功还是失败 都会确认offset
+        //失败的消息会在重试topic
         long offset = consumeRequest.getProcessQueue().removeMessage(consumeRequest.getMsgs());
+        //更新offsetstore
         if (offset >= 0 && !consumeRequest.getProcessQueue().isDropped()) {
+            //increaseOnly 表示offset只能增加
             this.defaultMQPushConsumerImpl.getOffsetStore().updateOffset(consumeRequest.getMessageQueue(), offset, true);
         }
     }
@@ -344,6 +360,12 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
         return this.defaultMQPushConsumerImpl.getConsumerStatsManager();
     }
 
+    /**
+     * 发送到重试队列 %RETRY%GROUP
+     * @param msg
+     * @param context
+     * @return
+     */
     public boolean sendMessageBack(final MessageExt msg, final ConsumeConcurrentlyContext context) {
         int delayLevel = context.getDelayLevelWhenNextConsume();
 
@@ -431,7 +453,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
             boolean hasException = false;
             ConsumeReturnType returnType = ConsumeReturnType.SUCCESS;
             try {
-                //如果是retry的消息 还原retry topic
+                //如果是retry的消息 还原得到实际的topic
                 ConsumeMessageConcurrentlyService.this.resetRetryTopic(msgs);
                 //设置消费开始时间
                 if (msgs != null && !msgs.isEmpty()) {
@@ -474,6 +496,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
                     ConsumeMessageConcurrentlyService.this.consumerGroup,
                     msgs,
                     messageQueue);
+                //重试
                 status = ConsumeConcurrentlyStatus.RECONSUME_LATER;
             }
 

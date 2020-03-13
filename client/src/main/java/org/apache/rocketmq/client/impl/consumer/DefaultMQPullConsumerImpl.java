@@ -73,6 +73,9 @@ public class DefaultMQPullConsumerImpl implements MQConsumerInner {
     private final ArrayList<ConsumeMessageHook> consumeMessageHookList = new ArrayList<ConsumeMessageHook>();
     private final ArrayList<FilterMessageHook> filterMessageHookList = new ArrayList<FilterMessageHook>();
     private volatile ServiceState serviceState = ServiceState.CREATE_JUST;
+    /**
+     *
+     */
     private MQClientInstance mQClientFactory;
     private PullAPIWrapper pullAPIWrapper;
     private OffsetStore offsetStore;
@@ -237,10 +240,14 @@ public class DefaultMQPullConsumerImpl implements MQConsumerInner {
 
         this.subscriptionAutomatically(mq.getTopic());
 
-        //block标志 会传到broker
-        //如果
+        //第一个参数为false 代表 pull不会顺带确认消息
+        //第二个参数 block代表是否开启长轮询
+        //第三个参数 表示broker需要处理消息过滤
+        //第四个参数为false 表示不需要通过过滤类过滤消息
         int sysFlag = PullSysFlag.buildSysFlag(false, block, true, false);
 
+        //如果是长轮询使用系统设置的长轮询等待时间
+        //如果不是长轮序，使用调用者配置的超时时间
         long timeoutMillis = block ? this.defaultMQPullConsumer.getConsumerTimeoutMillisWhenSuspend() : timeout;
 
         boolean isTagType = ExpressionType.isTagType(subscriptionData.getExpressionType());
@@ -254,14 +261,16 @@ public class DefaultMQPullConsumerImpl implements MQConsumerInner {
             maxNums,
             sysFlag,
             0,
-            this.defaultMQPullConsumer.getBrokerSuspendMaxTimeMillis(),//长轮询时间
-            timeoutMillis,
+            this.defaultMQPullConsumer.getBrokerSuspendMaxTimeMillis(),//broker长轮询时间
+            timeoutMillis,//客户端阻塞等待时间
             CommunicationMode.SYNC,//这个同步只与本地netty客户端请求方式有关 和远程实现无关
             null
         );
-        //处理
+        // 处理拉取结果
+        // 本地再次进行消息过滤
         this.pullAPIWrapper.processPullResult(mq, pullResult, subscriptionData);
-        //获取拉取结果
+        // 一些其他操作
+        // 执行一些回调
         if (!this.consumeMessageHookList.isEmpty()) {
             ConsumeMessageContext consumeMessageContext = null;
             consumeMessageContext = new ConsumeMessageContext();

@@ -71,7 +71,7 @@ public class PullRequestHoldService extends ServiceThread {
         log.info("{} service started", this.getServiceName());
         while (!this.isStopped()) {
             try {
-                //阻塞时间根据是不是长轮询不同
+                //阻塞时间根据是否支持长轮询不同
                 if (this.brokerController.getBrokerConfig().isLongPollingEnable()) {
                     //这边固定休息5秒。。应该有其他地方会激活吧
                     this.waitForRunning(5 * 1000);
@@ -127,6 +127,7 @@ public class PullRequestHoldService extends ServiceThread {
         String key = this.buildKey(topic, queueId);
         ManyPullRequest mpr = this.pullRequestTable.get(key);
         if (mpr != null) {
+            //注意这边会清除
             List<PullRequest> requestList = mpr.cloneListAndClear();
             if (requestList != null) {
                 List<PullRequest> replayList = new ArrayList<PullRequest>();
@@ -160,7 +161,7 @@ public class PullRequestHoldService extends ServiceThread {
                         }
                     }
 
-                    // TODO: 2019-06-11 why
+                    // 如果超过了长轮询时间 直接去拉取消息 拉取不到也返回
                     if (System.currentTimeMillis() >= (request.getSuspendTimestamp() + request.getTimeoutMillis())) {
                         try {
                             this.brokerController.getPullMessageProcessor().executeRequestWhenWakeup(request.getClientChannel(),
@@ -174,6 +175,7 @@ public class PullRequestHoldService extends ServiceThread {
                     replayList.add(request);
                 }
 
+                //这边将拉取不到的消息重新放入pullRequestTable 等待下次调度
                 if (!replayList.isEmpty()) {
                     mpr.addPullRequest(replayList);
                 }

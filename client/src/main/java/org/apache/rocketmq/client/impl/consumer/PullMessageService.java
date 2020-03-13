@@ -27,6 +27,10 @@ import org.apache.rocketmq.common.ServiceThread;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.common.utils.ThreadUtils;
 
+/**
+ * 用于拉取消息
+ *
+ */
 public class PullMessageService extends ServiceThread {
     private final InternalLogger log = ClientLogger.getLog();
     private final LinkedBlockingQueue<PullRequest> pullRequestQueue = new LinkedBlockingQueue<PullRequest>();
@@ -43,6 +47,11 @@ public class PullMessageService extends ServiceThread {
         this.mQClientFactory = mQClientFactory;
     }
 
+    /**
+     * 延迟放入pullRequest
+     * @param pullRequest
+     * @param timeDelay
+     */
     public void executePullRequestLater(final PullRequest pullRequest, final long timeDelay) {
         if (!isStopped()) {
             this.scheduledExecutorService.schedule(new Runnable() {
@@ -56,6 +65,10 @@ public class PullMessageService extends ServiceThread {
         }
     }
 
+    /**
+     * 立刻放入pullRequest
+     * @param pullRequest
+     */
     public void executePullRequestImmediately(final PullRequest pullRequest) {
         try {
             this.pullRequestQueue.put(pullRequest);
@@ -64,6 +77,13 @@ public class PullMessageService extends ServiceThread {
         }
     }
 
+    /**
+     * 这个设计略扯淡
+     * 不符合srp原则
+     * 把scheduledExecutorService暴露给上层执行延迟任务
+     * @param r
+     * @param timeDelay
+     */
     public void executeTaskLater(final Runnable r, final long timeDelay) {
         if (!isStopped()) {
             this.scheduledExecutorService.schedule(r, timeDelay, TimeUnit.MILLISECONDS);
@@ -76,7 +96,12 @@ public class PullMessageService extends ServiceThread {
         return scheduledExecutorService;
     }
 
+    /**
+     * 根据pullRequest拉取消息
+     * @param pullRequest
+     */
     private void pullMessage(final PullRequest pullRequest) {
+        //根据consumergroup找到MQConsumerInner实例
         final MQConsumerInner consumer = this.mQClientFactory.selectConsumer(pullRequest.getConsumerGroup());
         if (consumer != null) {
             DefaultMQPushConsumerImpl impl = (DefaultMQPushConsumerImpl) consumer;
@@ -93,7 +118,7 @@ public class PullMessageService extends ServiceThread {
 
         while (!this.isStopped()) {
             try {
-                //阻塞等待 知道有PullRequest
+                //阻塞等待 直到有PullRequest
                 //初始化的时候 PullRequest从rebalanceImpl那边来
                 PullRequest pullRequest = this.pullRequestQueue.take();
                 this.pullMessage(pullRequest);

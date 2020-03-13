@@ -82,6 +82,10 @@ import org.apache.rocketmq.remoting.exception.RemotingException;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 
+/**
+ * 封装客户端通用的操作
+ * 所有consumer共用一个MQClientInstance
+ */
 public class MQClientInstance {
     private final static long LOCK_TIMEOUT_MILLIS = 3000;
     private final InternalLogger log = ClientLogger.getLog();
@@ -130,6 +134,7 @@ public class MQClientInstance {
         this.nettyClientConfig.setClientCallbackExecutorThreads(clientConfig.getClientCallbackExecutorThreads());
         this.nettyClientConfig.setUseTLS(clientConfig.isUseTLS());
         this.clientRemotingProcessor = new ClientRemotingProcessor(this);
+        //封装用于和broker通信的api
         this.mQClientAPIImpl = new MQClientAPIImpl(this.nettyClientConfig, this.clientRemotingProcessor, rpcHook, clientConfig);
 
         if (this.clientConfig.getNamesrvAddr() != null) {
@@ -139,15 +144,20 @@ public class MQClientInstance {
 
         this.clientId = clientId;
 
+        //封装admin操作api
         this.mQAdminImpl = new MQAdminImpl(this);
 
+        //用于定时拉取消息
         this.pullMessageService = new PullMessageService(this);
 
+        //用于定时rebalance
         this.rebalanceService = new RebalanceService(this);
 
+        //应该是框架内部发消息使用
         this.defaultMQProducer = new DefaultMQProducer(MixAll.CLIENT_INNER_PRODUCER_GROUP);
         this.defaultMQProducer.resetClientConfig(clientConfig);
 
+        //用于数据统计
         this.consumerStatsManager = new ConsumerStatsManager(this.scheduledExecutorService);
 
         log.info("Created a new client Instance, InstanceIndex:{}, ClientID:{}, ClientConfig:{}, ClientVersion:{}, SerializerType:{}",
@@ -996,6 +1006,7 @@ public class MQClientInstance {
             MQConsumerInner impl = entry.getValue();
             if (impl != null) {
                 try {
+                    //对每个MQConsumerInner rebalance一次
                     impl.doRebalance();
                 } catch (Throwable e) {
                     log.error("doRebalance exception", e);
