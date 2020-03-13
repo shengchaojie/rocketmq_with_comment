@@ -83,7 +83,7 @@ import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 
 /**
- * 封装客户端通用的操作
+ * 封装客户端通用的操作 比如网络操作
  * 所有consumer共用一个MQClientInstance
  */
 public class MQClientInstance {
