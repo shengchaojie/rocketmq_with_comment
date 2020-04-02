@@ -610,6 +610,7 @@ public class CommitLog {
         putMessageLock.lock(); //spin or ReentrantLock ,depending on store config
         try {
             long beginLockTimestamp = this.defaultMessageStore.getSystemClock().now();
+            //消息插入开始时间，接下来的请求会用这个参数来判断系统是否busy，是否能插入消息
             this.beginTimeInLock = beginLockTimestamp;
 
             // Here settings are stored timestamp, in order to ensure an orderly
