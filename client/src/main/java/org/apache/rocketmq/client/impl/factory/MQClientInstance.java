@@ -324,6 +324,8 @@ public class MQClientInstance {
             }
         }, 1000, this.clientConfig.getHeartbeatBrokerInterval(), TimeUnit.MILLISECONDS);
 
+        //定时同步offset到broker
+        //除了拉消息的时候会同步下 也有定时
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
