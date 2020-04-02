@@ -328,6 +328,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
                     boolean result = this.sendMessageBack(msg, context);
                     //如果发送请求失败 那么本地再消费一次试试
                     if (!result) {
+                        //本地的重试也算重试次数！！！
                         msg.setReconsumeTimes(msg.getReconsumeTimes() + 1);
                         msgBackFailed.add(msg);
                     }
