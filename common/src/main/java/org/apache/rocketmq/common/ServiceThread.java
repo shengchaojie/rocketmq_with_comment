@@ -22,6 +22,12 @@ import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 
+/**
+ * 通过ServiceThread实现一个轻量级的有生命周期的能执行定时任务的线程
+ * 特点
+ * 单一职责 一个实现只执行特定任务 也不需要上下文切换
+ *
+ */
 public abstract class ServiceThread implements Runnable {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.COMMON_LOGGER_NAME);
 
@@ -49,6 +55,7 @@ public abstract class ServiceThread implements Runnable {
             return;
         }
         stopped = false;
+        //能够重复start。。。
         this.thread = new Thread(this, getServiceName());
         this.thread.setDaemon(isDaemon);
         this.thread.start();
@@ -71,11 +78,13 @@ public abstract class ServiceThread implements Runnable {
         }
 
         try {
+            //进行中断通知
             if (interrupt) {
                 this.thread.interrupt();
             }
 
             long beginTime = System.currentTimeMillis();
+            //让这个线程先执行结束
             if (!this.thread.isDaemon()) {
                 this.thread.join(this.getJointime());
             }
@@ -127,8 +136,12 @@ public abstract class ServiceThread implements Runnable {
         }
     }
 
+    /**
+     * 通过waitPoint超时等待 实现定时执行任务。。
+     * @param interval
+     */
     protected void waitForRunning(long interval) {
-        //如果已经被通知关闭 那么直接return
+        //如果已经被通知关闭 立刻return
         if (hasNotified.compareAndSet(true, false)) {
             this.onWaitEnd();
             return;
@@ -137,8 +150,9 @@ public abstract class ServiceThread implements Runnable {
         //entry to wait
         waitPoint.reset();
 
-        //进行超时等待
+        //通过await实现 定时执行任务 同时也支持快速唤醒
         try {
+            //同时也响应中断
             waitPoint.await(interval, TimeUnit.MILLISECONDS);
         } catch (InterruptedException e) {
             log.error("Interrupted", e);

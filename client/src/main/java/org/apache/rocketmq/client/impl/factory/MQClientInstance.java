@@ -546,7 +546,9 @@ public class MQClientInstance {
         return false;
     }
 
+    //发送心跳 如何让broker感知到producer和client
     private void sendHeartbeatToAllBroker() {
+        //准备数据
         final HeartbeatData heartbeatData = this.prepareHeartbeatData();
         final boolean producerEmpty = heartbeatData.getProducerDataSet().isEmpty();
         final boolean consumerEmpty = heartbeatData.getConsumerDataSet().isEmpty();
@@ -721,6 +723,7 @@ public class MQClientInstance {
         return false;
     }
 
+    //针对每个clientId，其实就是每个进程，发送心跳到broker，也就是底层的client是共用的
     private HeartbeatData prepareHeartbeatData() {
         HeartbeatData heartbeatData = new HeartbeatData();
 
