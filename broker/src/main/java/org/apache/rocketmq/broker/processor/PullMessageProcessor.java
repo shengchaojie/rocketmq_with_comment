@@ -499,8 +499,11 @@ public class PullMessageProcessor implements NettyRequestProcessor {
             response.setRemark("store getMessage return null");
         }
 
+        // TODO: 2020/11/17 待研究具体逻辑
         boolean storeOffsetEnable = brokerAllowSuspend;
+        //需要hasCommitOffsetFlag=true
         storeOffsetEnable = storeOffsetEnable && hasCommitOffsetFlag;
+        //需要当前broker是master
         storeOffsetEnable = storeOffsetEnable
             && this.brokerController.getMessageStoreConfig().getBrokerRole() != BrokerRole.SLAVE;
         if (storeOffsetEnable) {

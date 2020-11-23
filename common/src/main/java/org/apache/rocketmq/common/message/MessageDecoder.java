@@ -349,6 +349,7 @@ public class MessageDecoder {
             }
 
             ByteBuffer byteBufferMsgId = ByteBuffer.allocate(MSG_ID_LENGTH);
+            //msgid由 host + commitlogoffset拼接而成
             String msgId = createMessageId(byteBufferMsgId, msgExt.getStoreHostBytes(), msgExt.getCommitLogOffset());
             msgExt.setMsgId(msgId);
 

@@ -162,7 +162,9 @@ public class ProcessQueue {
                 }
 
                 if (!msgs.isEmpty()) {
+                    //注意，只取最后一条消息
                     MessageExt messageExt = msgs.get(msgs.size() - 1);
+                    //看来拉取到的消息，会带上当前队列的最大偏移量
                     String property = messageExt.getProperty(MessageConst.PROPERTY_MAX_OFFSET);
                     if (property != null) {
                         long accTotal = Long.parseLong(property) - messageExt.getQueueOffset();
@@ -201,6 +203,8 @@ public class ProcessQueue {
 
     /**
      * 移除pq中的msg，并且返回剩下第一条消息的offset
+     * 如果消息全部消费完，返回this.queueOffsetMax + 1
+     * 如果msgs为空 返回-1
      * @param msgs
      * @return
      */
