@@ -321,7 +321,10 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
             case CLUSTERING:
                 //ackIndex表示确认消息的位置,现在的代码看下来，要么全成功，要么全失败
                 List<MessageExt> msgBackFailed = new ArrayList<MessageExt>(consumeRequest.getMsgs().size());
-                //因为msgsize=1,所以只有失败的时候才会进入下面的循环
+                //consumerequest默认只消费一条消息，如果消费成功的话ackindex=0 下面的循环不会进去
+                //如果消费失败，ackindex = -1 ，就会进入下面循环
+                // 针对消费多条消息的consumeqrequest，可能出现部分成功，这个ackindex要我们消费逻辑主动控制
+                // 难度略大，不建议这么玩
                 for (int i = ackIndex + 1; i < consumeRequest.getMsgs().size(); i++) {
                     MessageExt msg = consumeRequest.getMsgs().get(i);
                     //消费失败的消息  重新插入到commitlog  发送到group对应重试topic
@@ -349,6 +352,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
         //removeMessage会返回offset
         //不管消费成功还是失败 都会确认offset
         //失败的消息会在重试topic
+        //此处对offset的确认为滑动窗口确认
         long offset = consumeRequest.getProcessQueue().removeMessage(consumeRequest.getMsgs());
         //更新offsetstore
         if (offset >= 0 && !consumeRequest.getProcessQueue().isDropped()) {

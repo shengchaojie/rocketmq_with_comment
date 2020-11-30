@@ -285,10 +285,17 @@ public class ProcessQueue {
         }
     }
 
+    /**
+     * 顺序消费专用
+     * @return
+     */
     public long commit() {
         try {
+            //加锁
             this.lockTreeMap.writeLock().lockInterruptibly();
             try {
+                //注意
+                //consumingMsgOrderlyTreeMap中的消息是批量的
                 Long offset = this.consumingMsgOrderlyTreeMap.lastKey();
                 msgCount.addAndGet(0 - this.consumingMsgOrderlyTreeMap.size());
                 for (MessageExt msg : this.consumingMsgOrderlyTreeMap.values()) {
@@ -308,10 +315,15 @@ public class ProcessQueue {
         return -1;
     }
 
+    /**
+     * 顺序消息专用
+     * @param msgs
+     */
     public void makeMessageToCosumeAgain(List<MessageExt> msgs) {
         try {
             this.lockTreeMap.writeLock().lockInterruptibly();
             try {
+                //额，，还给msgTreeMap
                 for (MessageExt msg : msgs) {
                     this.consumingMsgOrderlyTreeMap.remove(msg.getQueueOffset());
                     this.msgTreeMap.put(msg.getQueueOffset(), msg);
@@ -324,13 +336,20 @@ public class ProcessQueue {
         }
     }
 
+    /**
+     * 顺序消费专用方法
+     * @param batchSize
+     * @return
+     */
     public List<MessageExt> takeMessags(final int batchSize) {
         List<MessageExt> result = new ArrayList<MessageExt>(batchSize);
         final long now = System.currentTimeMillis();
         try {
+            //注意加锁
             this.lockTreeMap.writeLock().lockInterruptibly();
             this.lastConsumeTimestamp = now;
             try {
+                //从msgTreeMap取出第一条消息，放入consumingMsgOrderlyTreeMap
                 if (!this.msgTreeMap.isEmpty()) {
                     for (int i = 0; i < batchSize; i++) {
                         Map.Entry<Long, MessageExt> entry = this.msgTreeMap.pollFirstEntry();
