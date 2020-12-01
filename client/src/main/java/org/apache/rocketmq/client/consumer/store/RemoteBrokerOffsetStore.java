@@ -88,6 +88,11 @@ public class RemoteBrokerOffsetStore implements OffsetStore {
                         return -1;
                     }
                 }
+                /**
+                 * 拉取不到offset返回-1
+                 * 其他异常 返回-2
+                 * 正常拉取结果 >=0
+                 */
                 case READ_FROM_STORE: {
                     try {
                         //从远程拉取消费进度
@@ -97,8 +102,10 @@ public class RemoteBrokerOffsetStore implements OffsetStore {
                         this.updateOffset(mq, offset.get(), false);
                         return brokerOffset;
                     }
-                    // No offset in broker
+                    // No offset in broker 这个注释对的
                     catch (MQBrokerException e) {
+                        // 因此拉取不到offset抛出异常
+                        // 和消费者启动 拉取offset那段逻辑配合
                         return -1;
                     }
                     //Other exceptions
@@ -251,6 +258,7 @@ public class RemoteBrokerOffsetStore implements OffsetStore {
             requestHeader.setConsumerGroup(this.groupName);
             requestHeader.setQueueId(mq.getQueueId());
 
+            //注意下面方法调用 会抛出异常
             return this.mQClientFactory.getMQClientAPIImpl().queryConsumerOffset(
                 findBrokerResult.getBrokerAddr(), requestHeader, 1000 * 5);
         } else {

@@ -129,11 +129,13 @@ public class ConsumerManageProcessor implements NettyRequestProcessor {
             this.brokerController.getConsumerOffsetManager().queryOffset(
                 requestHeader.getConsumerGroup(), requestHeader.getTopic(), requestHeader.getQueueId());
 
+        //从consumeroffset文件能够找到offset
         if (offset >= 0) {
             responseHeader.setOffset(offset);
             response.setCode(ResponseCode.SUCCESS);
             response.setRemark(null);
         } else {
+            // 查找queue的minoffset
             long minOffset =
                 this.brokerController.getMessageStore().getMinOffsetInQueue(requestHeader.getTopic(),
                     requestHeader.getQueueId());
@@ -144,6 +146,7 @@ public class ConsumerManageProcessor implements NettyRequestProcessor {
                 response.setCode(ResponseCode.SUCCESS);
                 response.setRemark(null);
             } else {
+                //返回异常code
                 response.setCode(ResponseCode.QUERY_NOT_FOUND);
                 response.setRemark("Not found, V3_0_6_SNAPSHOT maybe this group consumer boot first");
             }

@@ -140,6 +140,12 @@ public class RebalancePushImpl extends RebalanceImpl {
         this.defaultMQPushConsumerImpl.getOffsetStore().removeOffset(mq);
     }
 
+    /**
+     * -1 代表啥
+     *
+     * @param mq
+     * @return
+     */
     @Override
     public long computePullFromWhere(MessageQueue mq) {
         long result = -1;
@@ -151,21 +157,21 @@ public class RebalancePushImpl extends RebalanceImpl {
             case CONSUME_FROM_MAX_OFFSET:
             case CONSUME_FROM_LAST_OFFSET: {
                 long lastOffset = offsetStore.readOffset(mq, ReadOffsetType.READ_FROM_STORE);
-                if (lastOffset >= 0) {
+                if (lastOffset >= 0) { //正常拉取结果
                     result = lastOffset;
                 }
                 // First start,no offset
-                else if (-1 == lastOffset) {
-                    if (mq.getTopic().startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
+                else if (-1 == lastOffset) { //拉取不到offset
+                    if (mq.getTopic().startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) { //如果是重试队列 从0开始
                         result = 0L;
                     } else {
-                        try {
+                        try { //获取最大offset 符合CONSUME_FROM_LAST_OFFSET语义
                             result = this.mQClientFactory.getMQAdminImpl().maxOffset(mq);
-                        } catch (MQClientException e) {
+                        } catch (MQClientException e) { //获取失败从-1开始
                             result = -1;
                         }
                     }
-                } else {
+                } else { //其他异常 -1 开始
                     result = -1;
                 }
                 break;
@@ -174,7 +180,7 @@ public class RebalancePushImpl extends RebalanceImpl {
                 long lastOffset = offsetStore.readOffset(mq, ReadOffsetType.READ_FROM_STORE);
                 if (lastOffset >= 0) {
                     result = lastOffset;
-                } else if (-1 == lastOffset) {
+                } else if (-1 == lastOffset) { //拉取不到从0开始 符合CONSUME_FROM_FIRST_OFFSET语义
                     result = 0L;
                 } else {
                     result = -1;
@@ -193,7 +199,7 @@ public class RebalancePushImpl extends RebalanceImpl {
                             result = -1;
                         }
                     } else {
-                        try {
+                        try { //符合CONSUME_FROM_TIMESTAMP语义
                             long timestamp = UtilAll.parseDate(this.defaultMQPushConsumerImpl.getDefaultMQPushConsumer().getConsumeTimestamp(),
                                 UtilAll.YYYYMMDDHHMMSS).getTime();
                             result = this.mQClientFactory.getMQAdminImpl().searchOffset(mq, timestamp);
