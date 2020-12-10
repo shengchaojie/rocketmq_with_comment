@@ -258,6 +258,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
         final String groupTopic = MixAll.getRetryTopic(consumerGroup);
         for (MessageExt msg : msgs) {
             String retryTopic = msg.getProperty(MessageConst.PROPERTY_RETRY_TOPIC);
+            //通过groupTopic判断，是否来源于当前consumer对应的重试队列
             if (retryTopic != null && groupTopic.equals(msg.getTopic())) {
                 msg.setTopic(retryTopic);
             }
@@ -309,7 +310,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
                 break;
         }
 
-        //这边很重要，会决定更新offset的值是多少
+        //这边很重要，用于处理消费失败的消息，也包括排在消费失败后面的消息
         switch (this.defaultMQPushConsumer.getMessageModel()) {
             case BROADCASTING:
                 //广播的消息 失败了 直接丢了

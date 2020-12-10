@@ -32,6 +32,8 @@ public class RebalanceLockManager {
     private final static long REBALANCE_LOCK_MAX_LIVE_TIME = Long.parseLong(System.getProperty(
         "rocketmq.broker.rebalance.lockMaxLiveTime", "60000"));
     private final Lock lock = new ReentrantLock();
+
+    //维护group对应mq的锁
     private final ConcurrentMap<String/* group */, ConcurrentHashMap<MessageQueue, LockEntry>> mqLockTable =
         new ConcurrentHashMap<String, ConcurrentHashMap<MessageQueue, LockEntry>>(1024);
 
@@ -119,6 +121,7 @@ public class RebalanceLockManager {
         Set<MessageQueue> lockedMqs = new HashSet<MessageQueue>(mqs.size());
         Set<MessageQueue> notLockedMqs = new HashSet<MessageQueue>(mqs.size());
 
+        //区分已经上锁的 和 未上锁的
         for (MessageQueue mq : mqs) {
             if (this.isLocked(group, mq, clientId)) {
                 lockedMqs.add(mq);
@@ -127,6 +130,7 @@ public class RebalanceLockManager {
             }
         }
 
+        //显而易见，对未上锁的，做上锁处理
         if (!notLockedMqs.isEmpty()) {
             try {
                 this.lock.lockInterruptibly();

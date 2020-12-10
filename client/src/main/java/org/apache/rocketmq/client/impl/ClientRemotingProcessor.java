@@ -185,6 +185,14 @@ public class ClientRemotingProcessor implements NettyRequestProcessor {
         return response;
     }
 
+    /**
+     * 运维接口?
+     * 强制让消费者消费消息
+     * @param ctx
+     * @param request
+     * @return
+     * @throws RemotingCommandException
+     */
     private RemotingCommand consumeMessageDirectly(ChannelHandlerContext ctx,
         RemotingCommand request) throws RemotingCommandException {
         final RemotingCommand response = RemotingCommand.createResponseCommand(null);
