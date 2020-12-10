@@ -267,6 +267,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
     ) {
         boolean continueConsume = true;
         long commitOffset = -1L;
+        // 类似于事务的概念
         if (context.isAutoCommit()) { //默认是true
             switch (status) {
                 case COMMIT:
@@ -291,6 +292,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
                             consumeRequest.getProcessQueue(),
                             consumeRequest.getMessageQueue(),
                             context.getSuspendCurrentQueueTimeMillis());
+                        // 注意: 这里continueConsume改为了false
                         continueConsume = false;
                     } else {
                         // 超过重试次数 直接提交了
@@ -301,7 +303,6 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
                     break;
             }
         } else {
-            // TODO: 2020/12/9 为啥有这个模式
             switch (status) {
                 case SUCCESS:
                     this.getConsumerStatsManager().incConsumeOKTPS(consumerGroup, consumeRequest.getMessageQueue().getTopic(), msgs.size());
@@ -382,8 +383,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
     }
 
     /**
-     * 根据注释
-     * 应该是发送到死信队列
+     * 发送到死信队列
      * @param msg
      * @return
      */
