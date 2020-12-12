@@ -516,6 +516,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
 
     public MessageQueue selectOneMessageQueue(final TopicPublishInfo tpInfo, final String lastBrokerName) {
         //通过默认策略
+        //这边是根据统计数据来的
         return this.mqFaultStrategy.selectOneMessageQueue(tpInfo, lastBrokerName);
     }
 
@@ -706,6 +707,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
 
         SendMessageContext context = null;
         if (brokerAddr != null) {
+            //如果使用vip通道，改写brokerAddr
             brokerAddr = MixAll.brokerVIPChannel(this.defaultMQProducer.isSendMessageWithVIPChannel(), brokerAddr);
 
             byte[] prevBody = msg.getBody();
@@ -772,7 +774,9 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 requestHeader.setReconsumeTimes(0);
                 requestHeader.setUnitMode(this.isUnitMode());
                 requestHeader.setBatch(msg instanceof MessageBatch);
+                //如果是发送到重试队列的消息
                 if (requestHeader.getTopic().startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
+                    //将消息体里的属性移到header里，应该是方便broker端处理
                     String reconsumeTimes = MessageAccessor.getReconsumeTime(msg);
                     if (reconsumeTimes != null) {
                         requestHeader.setReconsumeTimes(Integer.valueOf(reconsumeTimes));
@@ -790,6 +794,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 switch (communicationMode) {
                     case ASYNC:
                         Message tmpMessage = msg;
+                        //解决一个bug，消息压缩过后，重试的时候，再次被压缩
                         if (msgBodyCompressed) {
                             //If msg body was compressed, msgbody should be reset using prevBody.
                             //Clone new message using commpressed message body and recover origin massage.
@@ -811,7 +816,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                             sendCallback,
                             topicPublishInfo,
                             this.mQClientFactory,
-                            this.defaultMQProducer.getRetryTimesWhenSendAsyncFailed(),
+                            this.defaultMQProducer.getRetryTimesWhenSendAsyncFailed(), //异步发送失败重试次数
                             context,
                             this);
                         break;
@@ -873,6 +878,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     }
 
     private boolean tryToCompressMessage(final Message msg) {
+        // 批量消息不支持压缩
         if (msg instanceof MessageBatch) {
             //batch dose not support compressing right now
             return false;
@@ -996,8 +1002,10 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     public void send(final Message msg, final MessageQueue mq, final SendCallback sendCallback, final long timeout)
         throws MQClientException, RemotingException, InterruptedException {
         final long beginStartTime = System.currentTimeMillis();
+        //线程池
         ExecutorService executor = this.getAsyncSenderExecutor();
         try {
+            //异步执行
             executor.submit(new Runnable() {
                 @Override
                 public void run() {
@@ -1011,15 +1019,18 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                         long costTime = System.currentTimeMillis() - beginStartTime;
                         if (timeout > costTime) {
                             try {
+                                //回调模式消费消息
                                 sendKernelImpl(msg, mq, CommunicationMode.ASYNC, sendCallback, null,
                                     timeout - costTime);
                             } catch (MQBrokerException e) {
                                 throw new MQClientException("unknown exception", e);
                             }
                         } else {
+                            //如果没发送就已经超时了
                             sendCallback.onException(new RemotingTooMuchRequestException("call timeout"));
                         }
                     } catch (Exception e) {
+                        //发生异常
                         sendCallback.onException(e);
                     }
 
