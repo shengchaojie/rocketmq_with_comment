@@ -84,6 +84,7 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
     }
 
     public void start() {
+        //只有顺序消息的集群消费才需要开启这个定时任务
         if (MessageModel.CLUSTERING.equals(ConsumeMessageOrderlyService.this.defaultMQPushConsumerImpl.messageModel())) {
             this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
                 @Override
@@ -214,12 +215,11 @@ public class ConsumeMessageOrderlyService implements ConsumeMessageService {
             @Override
             public void run() {
                 //先向broker加锁
-                // TODO: 2020/12/9 为什么要想broker加锁
                 boolean lockOK = ConsumeMessageOrderlyService.this.lockOneMQ(mq);
-                // TODO: 2020/12/9 下面2个为啥延迟实践不同
                 if (lockOK) {
                     ConsumeMessageOrderlyService.this.submitConsumeRequestLater(processQueue, mq, 10);
                 } else {
+                    //加锁不成功，就缓一会儿再试
                     ConsumeMessageOrderlyService.this.submitConsumeRequestLater(processQueue, mq, 3000);
                 }
             }

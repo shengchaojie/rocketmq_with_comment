@@ -348,6 +348,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                                 boolean dispatchToConsume = processQueue.putMessage(pullResult.getMsgFoundList());
                                 //发送消费消息的请求 激活consumeMessageService
                                 //触发消息消费
+                                //注意是放到到consumer各自的consumeMessageService！！
                                 DefaultMQPushConsumerImpl.this.consumeMessageService.submitConsumeRequest(
                                     pullResult.getMsgFoundList(),
                                     processQueue,

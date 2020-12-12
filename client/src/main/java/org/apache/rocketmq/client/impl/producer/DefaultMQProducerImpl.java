@@ -385,6 +385,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
             }
         };
 
+        //放到线程池中执行
         this.checkExecutor.submit(request);
     }
 
@@ -1200,10 +1201,12 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                         log.debug("Used new transaction API");
                         localTransactionState = transactionListener.executeLocalTransaction(msg, arg);
                     }
+                    // 如果本地事务逻辑返回status = null 设置为UNKNOW
                     if (null == localTransactionState) {
                         localTransactionState = LocalTransactionState.UNKNOW;
                     }
 
+                    //如果不是COMMIT状态
                     if (localTransactionState != LocalTransactionState.COMMIT_MESSAGE) {
                         log.info("executeLocalTransactionBranch return {}", localTransactionState);
                         log.info(msg.toString());
@@ -1215,6 +1218,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 }
             }
             break;
+            //针对下面的发送消息的异常状态 设置状态为ROLLBACK_MESSAGE
             case FLUSH_DISK_TIMEOUT:
             case FLUSH_SLAVE_TIMEOUT:
             case SLAVE_NOT_AVAILABLE:
@@ -1266,6 +1270,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         EndTransactionRequestHeader requestHeader = new EndTransactionRequestHeader();
         requestHeader.setTransactionId(transactionId);
         requestHeader.setCommitLogOffset(id.getOffset());
+        //设置状态
         switch (localTransactionState) {
             case COMMIT_MESSAGE:
                 requestHeader.setCommitOrRollback(MessageSysFlag.TRANSACTION_COMMIT_TYPE);
@@ -1284,7 +1289,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         requestHeader.setTranStateTableOffset(sendResult.getQueueOffset());
         requestHeader.setMsgId(sendResult.getMsgId());
         String remark = localException != null ? ("executeLocalTransactionBranch exception: " + localException.toString()) : null;
-        //确认半消息 成功 或 失败 或 位置
+        //确认半消息
         this.mQClientFactory.getMQClientAPIImpl().endTransactionOneway(brokerAddr, requestHeader, remark,
             this.defaultMQProducer.getSendMsgTimeout());
     }
