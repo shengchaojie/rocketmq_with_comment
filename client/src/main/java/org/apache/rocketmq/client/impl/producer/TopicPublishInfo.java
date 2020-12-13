@@ -76,13 +76,13 @@ public class TopicPublishInfo {
             //全局轮询
             return selectOneMessageQueue();
         } else {
-            //在制定brokerName的queue下轮询
             int index = this.sendWhichQueue.getAndIncrement();
             for (int i = 0; i < this.messageQueueList.size(); i++) {
                 int pos = Math.abs(index++) % this.messageQueueList.size();
                 if (pos < 0)
                     pos = 0;
                 MessageQueue mq = this.messageQueueList.get(pos);
+                //和lastBrokerName不同才返回
                 if (!mq.getBrokerName().equals(lastBrokerName)) {
                     return mq;
                 }

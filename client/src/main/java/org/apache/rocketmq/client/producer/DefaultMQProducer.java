@@ -845,6 +845,10 @@ public class DefaultMQProducer extends ClientConfig implements MQProducer {
         return this.defaultMQProducerImpl.isSendLatencyFaultEnable();
     }
 
+    /**
+     * 延迟容错开关
+     * @param sendLatencyFaultEnable
+     */
     public void setSendLatencyFaultEnable(final boolean sendLatencyFaultEnable) {
         this.defaultMQProducerImpl.setSendLatencyFaultEnable(sendLatencyFaultEnable);
     }

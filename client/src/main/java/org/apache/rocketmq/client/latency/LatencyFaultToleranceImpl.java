@@ -25,10 +25,19 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.rocketmq.client.common.ThreadLocalIndex;
 
 public class LatencyFaultToleranceImpl implements LatencyFaultTolerance<String> {
+    /**
+     * 一个broker只有一个FaultItem
+     */
     private final ConcurrentHashMap<String, FaultItem> faultItemTable = new ConcurrentHashMap<String, FaultItem>(16);
 
     private final ThreadLocalIndex whichItemWorst = new ThreadLocalIndex();
 
+    /**
+     * 会不断的更新。。。
+     * @param name
+     * @param currentLatency
+     * @param notAvailableDuration
+     */
     @Override
     public void updateFaultItem(final String name, final long currentLatency, final long notAvailableDuration) {
         FaultItem old = this.faultItemTable.get(name);
@@ -62,6 +71,10 @@ public class LatencyFaultToleranceImpl implements LatencyFaultTolerance<String> 
         this.faultItemTable.remove(name);
     }
 
+    /**
+     * 相当于随机返回一个broker
+     * @return
+     */
     @Override
     public String pickOneAtLeast() {
         final Enumeration<FaultItem> elements = this.faultItemTable.elements();
@@ -72,6 +85,7 @@ public class LatencyFaultToleranceImpl implements LatencyFaultTolerance<String> 
         }
 
         if (!tmpList.isEmpty()) {
+            // TODO: 2020/12/13 为什么要先随机 再排序
             Collections.shuffle(tmpList);
 
             Collections.sort(tmpList);
@@ -80,6 +94,7 @@ public class LatencyFaultToleranceImpl implements LatencyFaultTolerance<String> 
             if (half <= 0) {
                 return tmpList.get(0).getName();
             } else {
+                //从0 - half 中取broker
                 final int i = this.whichItemWorst.getAndIncrement() % half;
                 return tmpList.get(i).getName();
             }
@@ -98,7 +113,11 @@ public class LatencyFaultToleranceImpl implements LatencyFaultTolerance<String> 
 
     class FaultItem implements Comparable<FaultItem> {
         private final String name;
+
+        //当前和broker的延迟
         private volatile long currentLatency;
+
+        //延迟连接生效时间
         private volatile long startTimestamp;
 
         public FaultItem(final String name) {
@@ -130,6 +149,10 @@ public class LatencyFaultToleranceImpl implements LatencyFaultTolerance<String> 
             return 0;
         }
 
+        /**
+         * 通过生效时间是否到 判断是否可用
+         * @return
+         */
         public boolean isAvailable() {
             return (System.currentTimeMillis() - startTimestamp) >= 0;
         }

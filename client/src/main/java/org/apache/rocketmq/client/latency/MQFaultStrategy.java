@@ -55,27 +55,44 @@ public class MQFaultStrategy {
         this.sendLatencyFaultEnable = sendLatencyFaultEnable;
     }
 
+    /**
+     *
+     * @param tpInfo
+     * @param lastBrokerName 注意，这个lastBrokerName代表上次失败的broker，所以选出来的mq不能在lastBrokerName中
+     * @return
+     */
     public MessageQueue selectOneMessageQueue(final TopicPublishInfo tpInfo, final String lastBrokerName) {
+        // 需要sendLatencyFaultEnable=true，才会走优化逻辑
         if (this.sendLatencyFaultEnable) {
-            // TODO: 2019-05-14 一个优化点 和延迟有关
             try {
+                // 如果lastBrokerName存在，尝试走同一个broker
+                // 如果lastBrokerName不存在，走最优的
+                // 递增的index
                 int index = tpInfo.getSendWhichQueue().getAndIncrement();
                 for (int i = 0; i < tpInfo.getMessageQueueList().size(); i++) {
+                    //获取队列pos
                     int pos = Math.abs(index++) % tpInfo.getMessageQueueList().size();
                     if (pos < 0)
                         pos = 0;
                     MessageQueue mq = tpInfo.getMessageQueueList().get(pos);
+                    //通过fault数据判断是否可用
                     if (latencyFaultTolerance.isAvailable(mq.getBrokerName())) {
+                        //在mq对应broker可用的情况下
+                        //要么lastBrokerName为null
+                        //如果lastBrokerName不为null，返回的mq必须属于lastBrokerName
                         if (null == lastBrokerName || mq.getBrokerName().equals(lastBrokerName))
                             return mq;
                     }
                 }
 
+                //随机获取一个broker
                 final String notBestBroker = latencyFaultTolerance.pickOneAtLeast();
+                //如果这个broker可写的queue
                 int writeQueueNums = tpInfo.getQueueIdByBroker(notBestBroker);
                 if (writeQueueNums > 0) {
                     final MessageQueue mq = tpInfo.selectOneMessageQueue();
                     if (notBestBroker != null) {
+                        //强制返回notBestBroker
                         mq.setBrokerName(notBestBroker);
                         mq.setQueueId(tpInfo.getSendWhichQueue().getAndIncrement() % writeQueueNums);
                     }
@@ -90,7 +107,7 @@ public class MQFaultStrategy {
             return tpInfo.selectOneMessageQueue();
         }
 
-        //轮询获取
+        //如果不为true，走默认的随机获取逻辑
         return tpInfo.selectOneMessageQueue(lastBrokerName);
     }
 
@@ -101,6 +118,11 @@ public class MQFaultStrategy {
         }
     }
 
+    /**
+     * 计算不可用时间
+     * @param currentLatency
+     * @return
+     */
     private long computeNotAvailableDuration(final long currentLatency) {
         for (int i = latencyMax.length - 1; i >= 0; i--) {
             if (currentLatency >= latencyMax[i])

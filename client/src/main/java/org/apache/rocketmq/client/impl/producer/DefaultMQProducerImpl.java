@@ -550,7 +550,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
             //发送失败重试
             for (; times < timesTotal; times++) {
                 String lastBrokerName = null == mq ? null : mq.getBrokerName();
-                //选择MessageQueue
+                //选择MessageQueue 注意！选择逻辑特殊
                 MessageQueue mqSelected = this.selectOneMessageQueue(topicPublishInfo, lastBrokerName);
                 if (mqSelected != null) {
                     mq = mqSelected;
