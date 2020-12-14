@@ -328,6 +328,7 @@ public class MQClientAPIImpl {
                 this.remotingClient.invokeOneway(addr, request, timeoutMillis);
                 return null;
             case ASYNC:
+                //异步发送消息的重试次数
                 final AtomicInteger times = new AtomicInteger();
                 long costTimeAsync = System.currentTimeMillis() - beginStartTime;
                 if (timeoutMillis < costTimeAsync) {
@@ -350,6 +351,18 @@ public class MQClientAPIImpl {
         return null;
     }
 
+    /**
+     * 同步发送消息 逻辑很简单
+     * @param addr
+     * @param brokerName
+     * @param msg
+     * @param timeoutMillis
+     * @param request
+     * @return
+     * @throws RemotingException
+     * @throws MQBrokerException
+     * @throws InterruptedException
+     */
     private SendResult sendMessageSync(
         final String addr,
         final String brokerName,
@@ -362,6 +375,23 @@ public class MQClientAPIImpl {
         return this.processSendResponse(brokerName, msg, response);
     }
 
+    /**
+     * 异步发送消息
+     * @param addr
+     * @param brokerName
+     * @param msg
+     * @param timeoutMillis
+     * @param request
+     * @param sendCallback
+     * @param topicPublishInfo
+     * @param instance
+     * @param retryTimesWhenSendFailed
+     * @param times
+     * @param context
+     * @param producer
+     * @throws InterruptedException
+     * @throws RemotingException
+     */
     private void sendMessageAsync(
         final String addr,
         final String brokerName,
@@ -376,9 +406,13 @@ public class MQClientAPIImpl {
         final SendMessageContext context,
         final DefaultMQProducerImpl producer
     ) throws InterruptedException, RemotingException {
+        //使用remotingClient的异步api
         this.remotingClient.invokeAsync(addr, request, timeoutMillis, new InvokeCallback() {
+
+            //请求完成后的回调
             @Override
             public void operationComplete(ResponseFuture responseFuture) {
+                //从responseFuture中获取返回
                 RemotingCommand response = responseFuture.getResponseCommand();
                 //如果sendCallback为null，并且请求返回成功
                 if (null == sendCallback && response != null) {
@@ -413,6 +447,7 @@ public class MQClientAPIImpl {
                         } catch (Throwable e) {
                         }
 
+                        //记录异步发送消息的延迟
                         producer.updateFaultItem(brokerName, System.currentTimeMillis() - responseFuture.getBeginTimestamp(), false);
                     } catch (Exception e) {
                         producer.updateFaultItem(brokerName, System.currentTimeMillis() - responseFuture.getBeginTimestamp(), true);
@@ -421,7 +456,9 @@ public class MQClientAPIImpl {
                             retryTimesWhenSendFailed, times, e, context, false, producer);
                     }
                 } else {
-                    // 请求返回失败
+                    // 请求返回
+
+                    // 不管成功失败都记录延迟
                     producer.updateFaultItem(brokerName, System.currentTimeMillis() - responseFuture.getBeginTimestamp(), true);
                     if (!responseFuture.isSendRequestOK()) {//发送失败
                         MQClientException ex = new MQClientException("send request failed", responseFuture.getCause());
@@ -505,8 +542,8 @@ public class MQClientAPIImpl {
                 onExceptionImpl(retryBrokerName, msg, timeoutMillis, request, sendCallback, topicPublishInfo, instance, timesTotal, curTimes, e1,
                     context, true, producer);
             }
-        } else {//不需要进行重试
-
+        } else {
+            //不需要进行重试 或者 重试次数到达上限
             if (context != null) {
                 context.setException(e);
                 context.getProducer().executeSendMessageHookAfter(context);
@@ -520,7 +557,9 @@ public class MQClientAPIImpl {
     }
 
     /**
-     * 处理rpc返回结果
+     * 处理rpc返回结果为SendResult
+     *
+     * 通过SendResult我们可以知道消息发到了那个broker中的哪个topic下的哪个queue，msgid是多少
      * @param brokerName
      * @param msg
      * @param response
@@ -563,6 +602,7 @@ public class MQClientAPIImpl {
 
                 MessageQueue messageQueue = new MessageQueue(msg.getTopic(), brokerName, responseHeader.getQueueId());
 
+                // TODO: 2020/12/14 这个id干嘛用的
                 String uniqMsgId = MessageClientIDSetter.getUniqID(msg);
                 if (msg instanceof MessageBatch) {
                     StringBuilder sb = new StringBuilder();
