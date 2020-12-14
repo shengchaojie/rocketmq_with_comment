@@ -19,6 +19,10 @@ package org.apache.rocketmq.client.producer;
 import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.message.MessageExt;
 
+/**
+ * 将回查逻辑和事务执行逻辑放到一起
+ * 强制让开发者想清楚意识到这两个件事的绑定关系
+ */
 public interface TransactionListener {
     /**
      * When send transactional prepare(half) message succeed, this method will be invoked to execute local transaction.

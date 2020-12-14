@@ -367,6 +367,7 @@ public class DefaultMessageStore implements MessageStore {
             return new PutMessageResult(PutMessageStatus.SERVICE_NOT_AVAILABLE, null);
         }
 
+        //slave不能放消息
         if (BrokerRole.SLAVE == this.messageStoreConfig.getBrokerRole()) {
             long value = this.printTimes.getAndIncrement();
             if ((value % 50000) == 0) {
@@ -387,16 +388,19 @@ public class DefaultMessageStore implements MessageStore {
             this.printTimes.set(0);
         }
 
+        //topic太长
         if (msg.getTopic().length() > Byte.MAX_VALUE) {
             log.warn("putMessage message topic length too long " + msg.getTopic().length());
             return new PutMessageResult(PutMessageStatus.MESSAGE_ILLEGAL, null);
         }
 
+        //properties太长
         if (msg.getPropertiesString() != null && msg.getPropertiesString().length() > Short.MAX_VALUE) {
             log.warn("putMessage message properties length too long " + msg.getPropertiesString().length());
             return new PutMessageResult(PutMessageStatus.PROPERTIES_SIZE_EXCEEDED, null);
         }
 
+        //刷盘时间太长
         if (this.isOSPageCacheBusy()) {
             return new PutMessageResult(PutMessageStatus.OS_PAGECACHE_BUSY, null);
         }
@@ -1720,6 +1724,9 @@ public class DefaultMessageStore implements MessageStore {
         }
     }
 
+    /**
+     * 淘汰ConsumeQueue和index中中过期的元素
+     */
     class CleanConsumeQueueService {
         private long lastPhysicalMinOffset = 0;
 
@@ -1762,6 +1769,9 @@ public class DefaultMessageStore implements MessageStore {
         }
     }
 
+    /**
+     * ConsumeQueue刷盘定时任务？？
+     */
     class FlushConsumeQueueService extends ServiceThread {
         private static final int RETRY_TIMES_OVER = 3;
         private long lastFlushTimestamp = 0;
@@ -1831,6 +1841,11 @@ public class DefaultMessageStore implements MessageStore {
         }
     }
 
+    /**
+     * 异步线程
+     * 用于根据commitlog构建cosnumequeue和index
+     * 从reputFromOffset开始构建
+     */
     class ReputMessageService extends ServiceThread {
 
         private volatile long reputFromOffset = 0;
@@ -1869,6 +1884,7 @@ public class DefaultMessageStore implements MessageStore {
         }
 
         private void doReput() {
+            // offset纠正
             if (this.reputFromOffset < DefaultMessageStore.this.commitLog.getMinOffset()) {
                 log.warn("The reputFromOffset={} is smaller than minPyOffset={}, this usually indicate that the dispatch behind too much and the commitlog has expired.",
                     this.reputFromOffset, DefaultMessageStore.this.commitLog.getMinOffset());
@@ -1876,6 +1892,7 @@ public class DefaultMessageStore implements MessageStore {
             }
             for (boolean doNext = true; this.isCommitLogAvailable() && doNext; ) {
 
+                // TODO: 2020/12/14 待研究
                 if (DefaultMessageStore.this.getMessageStoreConfig().isDuplicationEnable()
                     && this.reputFromOffset >= DefaultMessageStore.this.getConfirmOffset()) {
                     break;
@@ -1897,8 +1914,10 @@ public class DefaultMessageStore implements MessageStore {
                                 if (size > 0) {
                                     //进行dispatch
                                     //执行CommitLogDispatcherBuildConsumeQueue和CommitLogDispatcherBuildIndex的dispatch方法
+                                    //用于构建consumequeue和index
                                     DefaultMessageStore.this.doDispatch(dispatchRequest);
 
+                                    // 唤醒长轮训拉取消息的客户端
                                     if (BrokerRole.SLAVE != DefaultMessageStore.this.getMessageStoreConfig().getBrokerRole()
                                         && DefaultMessageStore.this.brokerConfig.isLongPollingEnable()) {
                                         //消息到达的回调
